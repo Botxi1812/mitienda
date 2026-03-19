@@ -4,3 +4,4 @@ __pycache__/
 tienda.db
 *.db
 .env
+MANUAL_DESPLIEGUE.md
