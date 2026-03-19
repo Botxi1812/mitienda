@@ -6,9 +6,11 @@ from sqlalchemy import text
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-import models, database, json, re
+import models, database, json, re, subprocess, sys
 
 models.Base.metadata.create_all(bind=database.engine)
+subprocess.run([sys.executable, "seed.py"], check=False)
+subprocess.run([sys.executable, "migrate.py"], check=False)
 
 app = FastAPI(title="Mi Tienda")
 app.mount("/static", StaticFiles(directory="static"), name="static")
