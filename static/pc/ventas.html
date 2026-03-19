@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Tienda — Nueva Venta</title>
+<link rel="stylesheet" href="/static/pc/comun.css">
+<style>
+  main { max-width:900px;margin:0 auto;padding:24px; }
+  .section { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);padding:24px;margin-bottom:20px; }
+  .section h2 { font-size:15px;font-weight:600;color:#374151;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f3f4f6; }
+  label { display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px; }
+  select,input { width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;color:#111827;background:#fff;transition:border .15s; }
+  select:focus,input:focus { outline:none;border-color:#3b82f6; }
+  .lineas-header { display:grid;grid-template-columns:1fr 100px 120px 100px 90px 36px;gap:8px;font-size:12px;font-weight:600;color:#6b7280;padding:0 4px 8px;border-bottom:1px solid #f3f4f6; }
+  .linea-row { display:grid;grid-template-columns:1fr 100px 120px 100px 90px 36px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #f9fafb; }
+  .linea-row:last-child { border-bottom:none; }
+  .precio-especial { font-size:11px;color:#f59e0b;font-weight:600; }
+  .btn-del { background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;line-height:1; }
+  .btn-del:hover { color:#b91c1c; }
+  .importe-cell { font-weight:600;color:#1e3a5f;text-align:right; }
+  .btn-add { display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 16px;background:#eff6ff;border:1.5px dashed #93c5fd;border-radius:10px;color:#3b82f6;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;width:100%;justify-content:center; }
+  .btn-add:hover { background:#dbeafe;border-color:#3b82f6; }
+  .totales { text-align:right;padding-top:14px;border-top:2px solid #f3f4f6;margin-top:4px; }
+  .totales .total-label { font-size:13px;color:#6b7280; }
+  .totales .total-num { font-size:28px;font-weight:700;color:#1e3a5f; }
+  .btn-confirmar { width:100%;padding:16px;background:#1e3a5f;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:8px; }
+  .btn-confirmar:hover { background:#1e40af; }
+  .btn-confirmar:disabled { background:#9ca3af;cursor:not-allowed; }
+  .modal-bg { position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:200; }
+  .modal-bg.show { display:flex; }
+  .modal { background:#fff;border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center; }
+  .modal h3 { font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:8px; }
+  .modal p { font-size:14px;color:#6b7280;margin-bottom:24px; }
+  .modal .num { font-size:32px;font-weight:800;color:#3b82f6; }
+  .modal-btns { display:flex;gap:10px; }
+  .modal-btns button { flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none; }
+  .btn-nueva { background:#eff6ff;color:#3b82f6; }
+  .btn-ver { background:#1e3a5f;color:#fff; }
+  .empty-msg { text-align:center;color:#9ca3af;padding:20px;font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:20px">
+    <h1>&#127978; Mi Tienda</h1>
+    <nav class="nav-links" id="nav-dinamica"></nav>
+  </div>
+  <div class="user-info">
+    <div class="avatar" id="avatar">?</div>
+    <div>
+      <div id="op-nombre" style="font-weight:600;font-size:13px"></div>
+      <div id="op-detalle" style="font-size:11px;color:#93c5fd"></div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<main id="main-ventas">
+  <div class="empty-msg" style="padding:60px">Cargando…</div>
+</main>
+
+<!-- Modal éxito -->
+<div class="modal-bg" id="modal-ok">
+  <div class="modal">
+    <div style="font-size:40px;margin-bottom:12px">&#9989;</div>
+    <h3>¡Venta registrada!</h3>
+    <div class="num" id="modal-num"></div>
+    <p id="modal-total"></p>
+    <div class="modal-btns">
+      <button class="btn-nueva" onclick="nuevaVenta()">Nueva venta</button>
+      <button class="btn-ver" onclick="window.location='/consultas'">Ver consultas</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/pc/comun.js"></script>
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────────
+const operario = initHeader();
+renderNavDinamica();
+if (operario) {
+  document.getElementById('op-detalle').textContent =
+    `${operario.numero} · ${operario.departamento || ''}`;
+}
+
+// Datos cargados dinámicamente
+let _tablasVenta = [];   // tabla_definiciones con en_venta_tipo != 'ninguno'
+let _datosTablas = {};   // {tabla_nombre: [...registros]}
+let _selectorTabla = null; // tabla con en_venta_tipo='selector'
+let _lineasTabla   = null; // tabla con en_venta_tipo='lineas'
+let _lineas = [];
+
+// ── Carga inicial ─────────────────────────────────────────────────────────────
+async function init() {
+  _tablasVenta = await fetch('/api/tablas?participa_venta=1').then(r => r.json());
+  _selectorTabla = _tablasVenta.find(t => t.en_venta_tipo === 'selector');
+  _lineasTabla   = _tablasVenta.find(t => t.en_venta_tipo === 'lineas');
+
+  await Promise.all(_tablasVenta.map(async t => {
+    _datosTablas[t.nombre] = await fetch(`/api/entidad/${t.nombre}`).then(r => r.json());
+  }));
+
+  renderPagina();
+}
+
+function renderPagina() {
+  let html = '';
+
+  // Sección selector (ej: cliente)
+  if (_selectorTabla) {
+    const t = _selectorTabla;
+    const cp = t.campo_principal;
+    const cs = t.campo_secundario;
+    html += `
+    <div class="section">
+      <h2>${t.etiqueta_singular}</h2>
+      <div>
+        <label>Buscar y seleccionar ${t.etiqueta_singular.toLowerCase()}</label>
+        <input type="text" id="buscador-sel" placeholder="Escribe nombre o código..."
+          oninput="filtrarSelector()" autocomplete="off">
+        <select size="5" id="select-sel" style="margin-top:8px;height:140px;"
+          onchange="selectorElegido()" onclick="selectorElegido()">
+          <option value="">Cargando…</option>
+        </select>
+        <div id="sel-info" style="font-size:13px;color:#6b7280;margin-top:8px"></div>
+      </div>
+    </div>`;
+  }
+
+  // Sección líneas (ej: artículos)
+  if (_lineasTabla) {
+    const t = _lineasTabla;
+    html += `
+    <div class="section">
+      <h2>Líneas de venta</h2>
+      <div class="lineas-header">
+        <span>${t.etiqueta_singular}</span>
+        <span>Cantidad</span><span>Precio unit.</span><span>Importe</span><span>Pago</span><span></span>
+      </div>
+      <div id="lineas-container">
+        <div class="empty-msg">Añade artículos usando el botón de abajo</div>
+      </div>
+      <button class="btn-add" onclick="agregarLinea()">＋ Añadir ${t.etiqueta_singular.toLowerCase()}</button>
+      <div class="totales">
+        <div class="total-label">Total albarán</div>
+        <div class="total-num" id="total-display">0,00 €</div>
+      </div>
+    </div>`;
+  }
+
+  html += `<button class="btn-confirmar" id="btn-confirmar" onclick="confirmarVenta()">Confirmar venta</button>`;
+  document.getElementById('main-ventas').innerHTML = html;
+
+  // Poblar selector
+  if (_selectorTabla) renderSelector(_datosTablas[_selectorTabla.nombre]);
+}
+
+// ── Selector ──────────────────────────────────────────────────────────────────
+function _etiquetaRow(t, row) {
+  const cp = row[t.campo_principal] || '';
+  const cs = row[t.campo_secundario] || '';
+  const ciudad = row.ciudad || '';
+  let label = cs ? `${cs} — ${cp}` : cp;
+  if (ciudad) label += ` (${ciudad})`;
+  return label;
+}
+
+function renderSelector(lista) {
+  const t = _selectorTabla;
+  const sel = document.getElementById('select-sel');
+  sel.innerHTML = lista.length === 0
+    ? '<option value="">Sin resultados</option>'
+    : lista.map(r => `<option value="${r.id}">${_etiquetaRow(t, r)}</option>`).join('');
+}
+
+function filtrarSelector() {
+  const t = _selectorTabla;
+  const q = document.getElementById('buscador-sel').value.toLowerCase();
+  const todos = _datosTablas[t.nombre];
+  const lista = q ? todos.filter(r =>
+    Object.values(r).some(v => String(v || '').toLowerCase().includes(q))
+  ) : todos;
+  renderSelector(lista);
+  document.getElementById('sel-info').textContent = '';
+}
+
+function selectorElegido() {
+  const sel = document.getElementById('select-sel');
+  const opt = sel.selectedOptions[0];
+  if (opt && opt.value) {
+    document.getElementById('sel-info').textContent = '✓ ' + opt.text;
+    recalcularPrecios();
+  }
+}
+
+function getSelectorId() {
+  const sel = document.getElementById('select-sel');
+  return sel?.value ? parseInt(sel.value) : null;
+}
+
+// ── Líneas ────────────────────────────────────────────────────────────────────
+async function agregarLinea() {
+  const idx = _lineas.length;
+  _lineas.push({ articulo_id: null, cantidad: 1, precio: 0, especial: false, tipo_pago: '' });
+  renderLineas();
+  setTimeout(() => {
+    const selects = document.querySelectorAll('.art-select');
+    if (selects[idx]) selects[idx].focus();
+  }, 50);
+}
+
+async function onArticuloChange(idx) {
+  const sel = document.querySelectorAll('.art-select')[idx];
+  const artId = parseInt(sel.value);
+  if (!artId) return;
+  _lineas[idx].articulo_id = artId;
+  const cliId = getSelectorId();
+  if (cliId && _selectorTabla?.nombre === 'clientes') {
+    const data = await fetch(`/api/precio/${cliId}/${artId}`).then(r => r.json());
+    _lineas[idx].precio   = data.precio;
+    _lineas[idx].especial = data.especial;
+  } else {
+    const art = _datosTablas[_lineasTabla.nombre]?.find(a => a.id === artId);
+    _lineas[idx].precio   = art ? (art.precio || 0) : 0;
+    _lineas[idx].especial = false;
+  }
+  renderLineas();
+  calcTotal();
+}
+
+async function recalcularPrecios() {
+  const cliId = getSelectorId();
+  if (!cliId || _selectorTabla?.nombre !== 'clientes') return;
+  for (let i = 0; i < _lineas.length; i++) {
+    if (_lineas[i].articulo_id) {
+      const data = await fetch(`/api/precio/${cliId}/${_lineas[i].articulo_id}`).then(r => r.json());
+      _lineas[i].precio   = data.precio;
+      _lineas[i].especial = data.especial;
+    }
+  }
+  renderLineas();
+  calcTotal();
+}
+
+function onCantidadChange(idx) {
+  const inputs = document.querySelectorAll('.cant-input');
+  _lineas[idx].cantidad = parseFloat(inputs[idx].value) || 1;
+  calcTotal(); actualizarImporte(idx);
+}
+
+function onPrecioChange(idx) {
+  const inputs = document.querySelectorAll('.precio-input');
+  _lineas[idx].precio   = parseFloat(inputs[idx].value) || 0;
+  _lineas[idx].especial = false;
+  calcTotal(); actualizarImporte(idx);
+}
+
+function actualizarImporte(idx) {
+  const celdas = document.querySelectorAll('.importe-cell');
+  if (celdas[idx]) celdas[idx].textContent = fmt(_lineas[idx].cantidad * _lineas[idx].precio) + ' €';
+}
+
+function eliminarLinea(idx) {
+  _lineas.splice(idx, 1);
+  renderLineas(); calcTotal();
+}
+
+function renderLineas() {
+  const t = _lineasTabla;
+  const registros = _datosTablas[t.nombre] || [];
+  const cp = t.campo_principal;
+  const cs = t.campo_secundario;
+  const c = document.getElementById('lineas-container');
+  if (_lineas.length === 0) {
+    c.innerHTML = '<div class="empty-msg">Añade artículos usando el botón de abajo</div>';
+    return;
+  }
+  c.innerHTML = _lineas.map((l, i) => `
+    <div class="linea-row">
+      <div>
+        <select class="art-select" style="font-size:13px" onchange="onArticuloChange(${i})">
+          <option value="">— selecciona ${t.etiqueta_singular.toLowerCase()} —</option>
+          ${registros.map(r => `<option value="${r.id}" ${r.id===l.articulo_id?'selected':''}>${r[cs]||''} — ${r[cp]||''}</option>`).join('')}
+        </select>
+        ${l.especial ? '<div class="precio-especial">★ Precio especial</div>' : ''}
+      </div>
+      <input class="cant-input" type="number" min="0.01" step="0.01" value="${l.cantidad}"
+        style="font-size:13px" oninput="onCantidadChange(${i})">
+      <input class="precio-input" type="number" min="0" step="0.01" value="${l.precio}"
+        style="font-size:13px" oninput="onPrecioChange(${i})">
+      <select style="font-size:12px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px"
+        onchange="_lineas[${i}].tipo_pago=this.value">
+        <option value="" ${!l.tipo_pago?'selected':''}>—</option>
+        <option value="contado" ${l.tipo_pago==='contado'?'selected':''}>Contado</option>
+        <option value="credito" ${l.tipo_pago==='credito'?'selected':''}>Crédito</option>
+      </select>
+      <div class="importe-cell">${fmt(l.cantidad * l.precio)} €</div>
+      <button class="btn-del" onclick="eliminarLinea(${i})">×</button>
+    </div>`).join('');
+}
+
+function calcTotal() {
+  const total = _lineas.reduce((s, l) => s + (l.cantidad * l.precio), 0);
+  document.getElementById('total-display').textContent = fmt(total) + ' €';
+}
+
+// ── Confirmar venta ───────────────────────────────────────────────────────────
+async function confirmarVenta() {
+  const selectorId = getSelectorId();
+  if (_selectorTabla?.en_venta_requerido && !selectorId)
+    return alert(`Selecciona un${_selectorTabla.etiqueta_singular.toLowerCase()} primero`);
+  if (!_lineas.length)
+    return alert('Añade al menos una línea');
+  if (_lineas.some(l => !l.articulo_id))
+    return alert('Hay líneas sin artículo seleccionado');
+
+  const btn = document.getElementById('btn-confirmar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  const totalLocal = _lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
+  const body = {
+    cliente_id:  selectorId,
+    operario_id: operario.id,
+    lineas: _lineas.map(l => ({
+      articulo_id:        l.articulo_id,
+      cantidad:           l.cantidad,
+      precio_unitario:    l.precio,
+      es_precio_especial: l.especial,
+      tipo_pago:          l.tipo_pago || ''
+    }))
+  };
+
+  try {
+    const res = await fetch('/api/albaranes', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).then(r => r.json());
+
+    if (!res?.numero) throw new Error(res?.detail || 'Sin número de albarán');
+    document.getElementById('modal-num').textContent   = res.numero;
+    document.getElementById('modal-total').textContent = `Total: ${fmt(totalLocal)} €`;
+    document.getElementById('modal-ok').classList.add('show');
+  } catch (err) {
+    alert('Error al guardar la venta: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar venta';
+  }
+}
+
+function nuevaVenta() {
+  _lineas = [];
+  const sel = document.getElementById('select-sel');
+  if (sel) sel.value = '';
+  const bus = document.getElementById('buscador-sel');
+  if (bus) { bus.value = ''; filtrarSelector(); }
+  const info = document.getElementById('sel-info');
+  if (info) info.textContent = '';
+  renderLineas(); calcTotal();
+  document.getElementById('modal-ok').classList.remove('show');
+}
+
+init();
+</script>
+</body>
+</html>

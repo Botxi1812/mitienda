@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Tienda — Departamentos</title>
+<link rel="stylesheet" href="/static/pc/comun.css">
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:16px">
+    <h1>🏪 Mi Tienda</h1>
+    <nav class="nav-links">
+      <a href="/ventas">Nueva venta</a>
+      <a href="/consultas">Consultas</a>
+      <span class="nav-sep">|</span>
+      <a href="/clientes">Clientes</a>
+      <a href="/trabajadores">Trabajadores</a>
+      <a href="/articulos">Artículos</a>
+      <a href="/departamentos" class="active">Departamentos</a>
+      <span class="nav-sep">|</span>
+      <a href="/configuracion">⚙️ Config</a>
+    </nav>
+  </div>
+  <div class="user-info">
+    <div class="avatar" id="avatar">?</div>
+    <div id="op-nombre"></div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<main>
+  <!-- Perfiles de vista -->
+  <div class="perfiles-bar">
+    <label>Vista:</label>
+    <select class="perfil-select" id="perfil-select" onchange="aplicarPerfil(this.value)">
+      <option value="">— sin perfil —</option>
+    </select>
+    <button class="btn-perfil btn-perfil-guardar" onclick="abrirModalPerfil()">💾 Guardar vista</button>
+    <button class="btn-perfil btn-perfil-borrar" id="btn-borrar-perfil" onclick="borrarPerfil()" style="display:none">🗑️ Borrar esta vista</button>
+    <span id="perfil-info" style="font-size:12px;color:#9ca3af;margin-left:auto"></span>
+  </div>
+
+  <div class="toolbar">
+    <input class="buscador" id="buscador" type="text" placeholder="Buscar departamento…" oninput="filtrar()">
+    <span class="count" id="count"></span>
+    <button class="btn-nuevo" onclick="abrir()">+ Nuevo departamento</button>
+  </div>
+  <div class="tabla-wrap"><div class="tabla-scroll">
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"><tr><td colspan="3" class="empty">Cargando…</td></tr></tbody>
+    </table>
+  </div></div>
+</main>
+
+<!-- Modal departamento -->
+<div class="modal-bg" id="modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-titulo">
+      <span id="m-titulo">Departamento</span>
+      <button class="btn-cerrar" onclick="cerrar()">×</button>
+    </div>
+    <div class="msg msg-error" id="msg-error"></div>
+    <div class="msg msg-ok"    id="msg-ok"></div>
+    <div class="campo"><label>Nombre del departamento *</label>
+      <input id="f-nombre" placeholder="Ventas, Comercial…" maxlength="80">
+    </div>
+    <div id="campos-extra-wrap"></div>
+    <div class="modal-footer">
+      <button class="btn-cancelar" onclick="cerrar()">Cancelar</button>
+      <button class="btn-guardar" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal perfil -->
+<div class="modal-perfil-bg" id="modal-perfil">
+  <div class="modal-perfil">
+    <h3>💾 Guardar vista actual</h3>
+    <input id="perfil-nombre" type="text" placeholder="Vista rápida, Vista básica…">
+    <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:8px;text-transform:uppercase">Columnas visibles</div>
+    <div class="perfil-cols-grid" id="perfil-cols-check"></div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button onclick="cerrarModalPerfil()" style="flex:1;padding:10px;background:#f3f4f6;border:none;border-radius:8px;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="guardarPerfil()" style="flex:1;padding:10px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/pc/comun.js"></script>
+<script>
+const operario = initHeader();
+let datos = [], trabajadores = [], editId = null, camposExtra = [], sortCol = 'nombre', sortDir = 1;
+
+const COLS_FIJAS = [
+  {k:'id',             l:'#'},
+  {k:'nombre',         l:'Nombre'},
+  {k:'_trabajadores',  l:'Trabajadores asignados'},
+];
+let colsDef = [...COLS_FIJAS];
+let columnasVisibles = [...COLS_FIJAS];
+
+async function cargar() {
+  camposExtra = await cargarCamposExtra("departamentos");
+  [datos, trabajadores] = await Promise.all([
+    fetch('/api/departamentos').then(r => r.json()),
+    fetch('/api/operarios').then(r => r.json())
+  ]);
+  colsDef = [...COLS_FIJAS, ...camposExtra.map(c => ({k:c.nombre, l:c.etiqueta}))];
+  if (!perfilActivo) columnasVisibles = [...colsDef];
+  render();
+}
+
+function filtrar() {
+  const q = document.getElementById('buscador').value.toLowerCase();
+  renderTabla(q ? datos.filter(d => d.nombre.toLowerCase().includes(q)) : datos);
+}
+
+function ord(col) {
+  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+  render();
+}
+
+function render() {
+  const q = document.getElementById('buscador').value.toLowerCase();
+  renderTabla(q ? datos.filter(d => d.nombre.toLowerCase().includes(q)) : datos);
+}
+
+function renderCabecera() {
+  document.getElementById('thead').innerHTML = '<tr>' +
+    columnasVisibles.map(c =>
+      `<th onclick="ord('${c.k}')">${c.l} ↕</th>`
+    ).join('') + '</tr>';
+}
+
+function renderCell(d, k) {
+  if (k === 'id')    return `<td class="cod">${d.id}</td>`;
+  if (k === 'nombre') return `<td><strong>${d.nombre}</strong></td>`;
+  if (k === '_trabajadores') {
+    const asignados = trabajadores.filter(t => t.departamento_id === d.id).map(t => t.nombre).join(', ') || '—';
+    return `<td style="color:#6b7280;font-size:12px">${asignados}</td>`;
+  }
+  return `<td>${d[k]!==undefined ? d[k] : '—'}</td>`;
+}
+
+function renderTabla(lista) {
+  renderCabecera();
+  const sorted = ordenarTabla(lista, sortCol, sortDir);
+  document.getElementById('count').textContent = sorted.length + ' departamentos';
+  const tb = document.getElementById('tbody');
+  const ncols = columnasVisibles.length;
+  if (!sorted.length) { tb.innerHTML = `<tr><td colspan="${ncols}" class="empty">Sin resultados</td></tr>`; return; }
+  tb.innerHTML = sorted.map(d => `
+    <tr onclick="abrir(${d.id})">
+      ${columnasVisibles.map(col => renderCell(d, col.k)).join('')}
+    </tr>`).join('');
+}
+
+function abrir(id) {
+  editId = id || null;
+  document.getElementById('msg-error').style.display = 'none';
+  document.getElementById('msg-ok').style.display = 'none';
+  if (id) {
+    const d = datos.find(x => x.id === id);
+    document.getElementById('m-titulo').textContent = 'Editar departamento';
+    document.getElementById('f-nombre').value = d.nombre;
+  } else {
+    document.getElementById('m-titulo').textContent = 'Nuevo departamento';
+    document.getElementById('f-nombre').value = '';
+  }
+  document.getElementById('campos-extra-wrap').innerHTML = renderCamposExtra(camposExtra, id ? datos.find(x=>x.id===id) : {});
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('f-nombre').focus();
+}
+
+function cerrar() { document.getElementById('modal').classList.remove('show'); }
+
+async function guardar() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  if (!nombre) { showMsg('msg-error', 'El nombre es obligatorio', 'error'); return; }
+  const body = { nombre, extra: recogerCamposExtra(camposExtra) };
+  const url    = editId ? `/api/departamentos/${editId}` : '/api/departamentos';
+  const method = editId ? 'PUT' : 'POST';
+  const res  = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { showMsg('msg-error', data.detail || 'Error al guardar', 'error'); return; }
+  showMsg('msg-ok', editId ? 'Departamento actualizado' : 'Departamento creado', 'ok');
+  await cargar();
+  setTimeout(cerrar, 1200);
+}
+
+// ── Perfiles ───────────────────────────────────────────────────────────────
+let perfilActivo = null, perfilesLista = [];
+
+async function cargarPerfiles() {
+  if (!operario) return;
+  perfilesLista = await apiCargarPerfiles('departamentos', operario.id);
+  renderSelectPerfiles(perfilesLista, perfilActivo?.id);
+  document.getElementById('btn-borrar-perfil').style.display = perfilActivo ? 'block' : 'none';
+}
+
+function aplicarPerfil(id) {
+  if (!id) {
+    perfilActivo = null;
+    document.getElementById('btn-borrar-perfil').style.display = 'none';
+    document.getElementById('perfil-info').textContent = '';
+    columnasVisibles = [...colsDef];
+    render(); return;
+  }
+  const p = perfilesLista.find(x => x.id == id);
+  if (!p) return;
+  perfilActivo = p;
+  document.getElementById('btn-borrar-perfil').style.display = 'block';
+  document.getElementById('perfil-info').textContent = `Perfil activo: ${p.nombre}`;
+  if (p.config && p.config.columnas) {
+    const keys = p.config.columnas;
+    columnasVisibles = colsDef.filter(c => keys.includes(c.k));
+    if (!columnasVisibles.length) columnasVisibles = [...colsDef];
+  } else {
+    columnasVisibles = [...colsDef];
+  }
+  render();
+}
+
+function abrirModalPerfil() {
+  document.getElementById('perfil-nombre').value = perfilActivo ? perfilActivo.nombre : '';
+  const activos = new Set(perfilActivo?.config?.columnas || colsDef.map(c=>c.k));
+  document.getElementById('perfil-cols-check').innerHTML = colsDef.map(c =>
+    `<label><input type="checkbox" id="col-check-${c.k}" ${activos.has(c.k)?'checked':''}> ${c.l}</label>`
+  ).join('');
+  document.getElementById('modal-perfil').classList.add('show');
+  document.getElementById('perfil-nombre').focus();
+}
+function cerrarModalPerfil() { document.getElementById('modal-perfil').classList.remove('show'); }
+
+async function guardarPerfil() {
+  const nombre = document.getElementById('perfil-nombre').value.trim();
+  if (!nombre) { alert('Escribe un nombre para el perfil'); return; }
+  const columnas = colsDef.filter(c => {
+    const cb = document.getElementById(`col-check-${c.k}`);
+    return cb ? cb.checked : true;
+  }).map(c => c.k);
+  const config = { columnas };
+  if (perfilActivo) {
+    await apiActualizarPerfil(perfilActivo.id, 'departamentos', operario.id, nombre, config);
+    perfilActivo.nombre = nombre; perfilActivo.config = config;
+    aplicarPerfil(perfilActivo.id);
+  } else {
+    const res = await apiCrearPerfil('departamentos', operario.id, nombre, config);
+    if (res.ok) {
+      await cargarPerfiles();
+      document.getElementById('perfil-select').value = res.id;
+      aplicarPerfil(res.id);
+    }
+  }
+  cerrarModalPerfil();
+  await cargarPerfiles();
+}
+
+async function borrarPerfil() {
+  if (!perfilActivo) return;
+  if (!confirm(`¿Borrar el perfil "${perfilActivo.nombre}"?`)) return;
+  await apiBorrarPerfil(perfilActivo.id);
+  perfilActivo = null;
+  columnasVisibles = [...colsDef];
+  document.getElementById('perfil-select').value = '';
+  document.getElementById('btn-borrar-perfil').style.display = 'none';
+  document.getElementById('perfil-info').textContent = '';
+  render();
+  await cargarPerfiles();
+}
+
+cargar();
+setTimeout(() => { if (operario) cargarPerfiles(); }, 150);
+</script>
+</body>
+</html>

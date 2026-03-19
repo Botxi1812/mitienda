@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mi Tienda</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 18px; font-weight: 700; }
+  .btn-salir {
+    background: none; border: 1px solid rgba(255,255,255,.4);
+    color: #fff; padding: 6px 14px; border-radius: 20px;
+    font-size: 13px; cursor: pointer;
+  }
+
+  /* PASOS */
+  .paso {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    padding: 24px 20px;
+    animation: fadeIn .2s ease;
+  }
+  .paso.activo { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .paso-titulo {
+    font-size: 13px; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: .5px;
+    margin-bottom: 8px;
+  }
+  .paso-pregunta {
+    font-size: 22px; font-weight: 700; color: #1e3a5f;
+    margin-bottom: 24px; line-height: 1.3;
+  }
+
+  /* TARJETAS DE SELECCION */
+  .opciones { display: flex; flex-direction: column; gap: 12px; }
+  .opcion-btn {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 18px 20px;
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer; transition: all .15s;
+    text-align: left; width: 100%;
+  }
+  .opcion-btn:active { transform: scale(.97); }
+  .opcion-btn.selected { border-color: #3b82f6; background: #eff6ff; }
+  .opcion-icono {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; flex-shrink: 0;
+    color: #fff;
+  }
+  .opcion-nombre { font-size: 16px; font-weight: 600; color: #111827; }
+  .opcion-sub { font-size: 13px; color: #6b7280; margin-top: 2px; }
+
+  /* BUSCADOR */
+  .buscador-wrap { position: relative; margin-bottom: 12px; }
+  .buscador-wrap input {
+    width: 100%; padding: 14px 16px 14px 44px;
+    border: 2px solid #e5e7eb; border-radius: 14px;
+    font-size: 16px; color: #111827; background: #fff;
+    transition: border .15s;
+  }
+  .buscador-wrap input:focus { outline: none; border-color: #3b82f6; }
+  .buscador-wrap .icono-buscar {
+    position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); font-size: 18px; color: #9ca3af;
+  }
+  .lista-scroll {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 50vh;
+  }
+  .lista-item {
+    background: #fff; border: 2px solid #e5e7eb; border-radius: 12px;
+    padding: 14px 16px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .lista-item:active { transform: scale(.98); background: #eff6ff; border-color: #3b82f6; }
+  .lista-nombre { font-size: 15px; font-weight: 600; color: #111827; }
+  .lista-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .lista-flecha { font-size: 20px; color: #d1d5db; }
+
+  /* CANTIDAD */
+  .cantidad-wrap {
+    display: flex; align-items: center; justify-content: center;
+    gap: 20px; margin: 10px 0 16px;
+  }
+  .btn-cant {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: #1e3a5f; color: #fff;
+    border: none; font-size: 28px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .btn-cant:active { background: #1e40af; transform: scale(.95); }
+  .cant-num {
+    font-size: 56px; font-weight: 800; color: #1e3a5f;
+    min-width: 80px; text-align: center;
+  }
+
+  /* RESUMEN */
+  .resumen-card {
+    background: #fff; border-radius: 16px;
+    padding: 20px; margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  }
+  .resumen-fila {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px;
+  }
+  .resumen-fila:last-child { border-bottom: none; }
+  .resumen-label { color: #6b7280; }
+  .resumen-valor { font-weight: 600; color: #111827; }
+  .resumen-total {
+    font-size: 36px; font-weight: 800; color: #1e3a5f;
+    text-align: center; padding: 16px 0 4px;
+  }
+  .badge-esp {
+    font-size: 11px; background: #fef3c7; color: #b45309;
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+
+  /* BOTONES PAGO */
+  .btns-pago { display: flex; flex-direction: column; gap: 12px; }
+  .btn-pago {
+    padding: 20px; border-radius: 16px;
+    border: none; font-size: 18px; font-weight: 700;
+    cursor: pointer; transition: all .15s; width: 100%;
+  }
+  .btn-pago:active { transform: scale(.97); }
+  .btn-credito { background: #f3f4f6; color: #374151; }
+  .btn-contado { background: #1e3a5f; color: #fff; }
+
+  /* COBRO */
+  .importe-grande {
+    font-size: 52px; font-weight: 800; color: #1e3a5f;
+    text-align: center; margin: 20px 0 8px;
+  }
+  .importe-sub { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 32px; }
+  .btn-cobrar {
+    width: 100%; padding: 22px; border-radius: 16px;
+    background: #059669; color: #fff;
+    border: none; font-size: 20px; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn-cobrar:active { background: #047857; transform: scale(.97); }
+
+  /* EXITO */
+  .exito-wrap {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 40px 24px;
+  }
+  .exito-icono { font-size: 72px; margin-bottom: 16px; }
+  .exito-titulo { font-size: 26px; font-weight: 800; color: #1e3a5f; margin-bottom: 8px; }
+  .exito-albaran { font-size: 20px; font-weight: 700; color: #3b82f6; margin-bottom: 4px; }
+  .exito-sub { font-size: 14px; color: #6b7280; margin-bottom: 40px; }
+  .btn-nueva-venta {
+    width: 100%; padding: 20px; border-radius: 16px;
+    background: #1e3a5f; color: #fff;
+    border: none; font-size: 18px; font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* BOTON SIGUIENTE */
+  .btn-siguiente {
+    margin-top: auto; padding: 18px;
+    background: #1e3a5f; color: #fff;
+    border: none; border-radius: 16px;
+    font-size: 17px; font-weight: 700;
+    cursor: pointer; transition: background .15s; width: 100%;
+  }
+  .btn-siguiente:disabled { background: #d1d5db; cursor: not-allowed; }
+  .btn-siguiente:not(:disabled):active { background: #1e40af; }
+
+  .colores { --c0:#3b82f6;--c1:#6366f1;--c2:#10b981;--c3:#f59e0b;--c4:#ef4444; }
+</style>
+</head>
+<body class="colores">
+
+<header>
+  <h1>🏪 Mi Tienda</h1>
+  <button class="btn-salir" onclick="salir()" id="btn-salir" style="display:none">Salir</button>
+</header>
+
+<!-- PASO 1: QUIEN ERES -->
+<div class="paso activo" id="paso-login">
+  <div class="paso-titulo">Inicio</div>
+  <div class="paso-pregunta">¿Quién eres?</div>
+  <div class="opciones" id="lista-operarios">
+    <div style="text-align:center;color:#9ca3af;padding:20px">Cargando…</div>
+  </div>
+</div>
+
+<!-- PASO 2: QUE VAS A VENDER -->
+<div class="paso" id="paso-articulo">
+  <div class="paso-titulo">Paso 1 de 3</div>
+  <div class="paso-pregunta">¿Qué vas a vender hoy?</div>
+  <div class="opciones" id="lista-articulos">
+    <div style="text-align:center;color:#9ca3af;padding:20px">Cargando…</div>
+  </div>
+  <button class="btn-siguiente" id="btn-art-ok" disabled onclick="irCliente()">Continuar →</button>
+</div>
+
+<!-- PASO 3: CLIENTE -->
+<div class="paso" id="paso-cliente">
+  <div class="paso-titulo">Paso 2 de 3</div>
+  <div class="paso-pregunta">¿A quién le vendes?</div>
+  <div class="buscador-wrap">
+    <span class="icono-buscar">🔍</span>
+    <input type="text" id="buscador-cli" placeholder="Nombre o código..." oninput="filtrarClientes()" autocomplete="off">
+  </div>
+  <div class="lista-scroll" id="lista-clientes">
+    <div style="text-align:center;color:#9ca3af;padding:20px">Cargando…</div>
+  </div>
+</div>
+
+<!-- PASO 4: CANTIDAD -->
+<div class="paso" id="paso-cantidad">
+  <div class="paso-titulo">Paso 3 de 3</div>
+  <div class="paso-pregunta">¿Cuántas unidades?</div>
+  <div style="background:#fff;border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+    <div style="font-size:13px;font-weight:600;color:#111827;flex:1" id="art-nombre-cant"></div>
+    <div style="font-size:13px;color:#6b7280;flex:1;text-align:right" id="cli-nombre-cant"></div>
+  </div>
+  <div class="cantidad-wrap">
+    <button class="btn-cant" onclick="cambiarCant(-1)">−</button>
+    <div class="cant-num" id="cant-display">1</div>
+    <button class="btn-cant" onclick="cambiarCant(1)">+</button>
+  </div>
+  <button class="btn-siguiente" onclick="irPago()">Ver importe →</button>
+</div>
+
+<!-- PASO 5: PAGO -->
+<div class="paso" id="paso-pago">
+  <div class="paso-titulo">Forma de pago</div>
+  <div class="paso-pregunta">¿Cómo paga?</div>
+  <div class="resumen-card" id="resumen-venta"></div>
+  <div class="btns-pago">
+    <button class="btn-pago btn-contado" onclick="elegirPago('contado')">💵 Contado</button>
+    <button class="btn-pago btn-credito" onclick="elegirPago('credito')">📋 Crédito</button>
+  </div>
+</div>
+
+<!-- PASO 6: COBRO CONTADO -->
+<div class="paso" id="paso-cobro">
+  <div class="paso-titulo">Cobro en efectivo</div>
+  <div class="paso-pregunta">Importe a cobrar</div>
+  <div class="importe-grande" id="importe-cobro"></div>
+  <div class="importe-sub" id="importe-sub"></div>
+  <button class="btn-cobrar" onclick="confirmarVenta('contado')">✓ Cobrado — Confirmar venta</button>
+</div>
+
+<!-- PASO 7: EXITO -->
+<div class="paso" id="paso-exito">
+  <div class="exito-wrap">
+    <div class="exito-icono">✅</div>
+    <div class="exito-titulo">¡Venta realizada!</div>
+    <div class="exito-albaran" id="exito-albaran"></div>
+    <div class="exito-sub" id="exito-sub"></div>
+    <button class="btn-nueva-venta" onclick="nuevaVenta()">Nueva venta</button>
+  </div>
+</div>
+
+<script>
+const colores = ['#3b82f6','#6366f1','#10b981','#f59e0b','#ef4444'];
+let operario = null, articulo = null, cliente = null, cantidad = 1, precio = 0, especial = false;
+let clientes = [], articulos = [];
+
+function ir(paso) {
+  document.querySelectorAll('.paso').forEach(p => p.classList.remove('activo'));
+  document.getElementById('paso-' + paso).classList.add('activo');
+  document.getElementById('btn-salir').style.display = (paso === 'login') ? 'none' : 'block';
+}
+
+function salir() {
+  operario = null; articulo = null; cliente = null; cantidad = 1;
+  ir('login');
+}
+
+// Cargar datos
+Promise.all([
+  fetch('/api/operarios').then(r => r.json()),
+  fetch('/api/articulos').then(r => r.json()),
+  fetch('/api/clientes').then(r => r.json())
+]).then(([ops, arts, cls]) => {
+  articulos = arts;
+  clientes = cls;
+
+  // Operarios
+  const lo = document.getElementById('lista-operarios');
+  lo.innerHTML = '';
+  ops.forEach((op, i) => {
+    const ini = op.nombre.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    const btn = document.createElement('button');
+    btn.className = 'opcion-btn';
+    btn.innerHTML = `
+      <div class="opcion-icono" style="background:${colores[i % colores.length]}">${ini}</div>
+      <div>
+        <div class="opcion-nombre">${op.nombre}</div>
+        <div class="opcion-sub">${op.numero} · ${op.departamento}</div>
+      </div>`;
+    btn.onclick = () => { operario = op; ir('articulo'); };
+    lo.appendChild(btn);
+  });
+
+  // Artículos
+  const la = document.getElementById('lista-articulos');
+  la.innerHTML = '';
+  arts.forEach(art => {
+    const btn = document.createElement('button');
+    btn.className = 'opcion-btn';
+    btn.dataset.id = art.id;
+    btn.innerHTML = `
+      <div class="opcion-icono" style="background:#1e3a5f;font-size:13px">${art.codigo}</div>
+      <div style="flex:1">
+        <div class="opcion-nombre">${art.descripcion}</div>
+        <div class="opcion-sub">${art.categoria} · ${fmt(art.precio)} €</div>
+      </div>`;
+    btn.onclick = () => {
+      document.querySelectorAll('#lista-articulos .opcion-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      articulo = art;
+      document.getElementById('btn-art-ok').disabled = false;
+    };
+    la.appendChild(btn);
+  });
+
+  // Clientes
+  renderClientes(clientes);
+});
+
+function irCliente() {
+  if (!articulo) return;
+  ir('cliente');
+  document.getElementById('buscador-cli').value = '';
+  renderClientes(clientes);
+}
+
+function filtrarClientes() {
+  const q = document.getElementById('buscador-cli').value.toLowerCase();
+  renderClientes(q ? clientes.filter(c => (c.nombre + c.codigo).toLowerCase().includes(q)) : clientes);
+}
+
+function renderClientes(lista) {
+  const div = document.getElementById('lista-clientes');
+  div.innerHTML = '';
+  lista.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'lista-item';
+    item.innerHTML = `
+      <div>
+        <div class="lista-nombre">${c.nombre}</div>
+        <div class="lista-sub">${c.codigo} · ${c.ciudad}</div>
+      </div>
+      <div class="lista-flecha">›</div>`;
+    item.onclick = () => { cliente = c; irCantidad(); };
+    div.appendChild(item);
+  });
+  if (lista.length === 0) div.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px">Sin resultados</div>';
+}
+
+async function irCantidad() {
+  cantidad = 1;
+  document.getElementById('cant-display').textContent = '1';
+  document.getElementById('art-nombre-cant').textContent = articulo.descripcion;
+  document.getElementById('cli-nombre-cant').textContent = cliente.nombre;
+
+  // Obtener precio (especial o normal)
+  const data = await fetch(`/api/precio/${cliente.id}/${articulo.id}`).then(r => r.json());
+  precio = data.precio;
+  especial = data.especial;
+  ir('cantidad');
+}
+
+function cambiarCant(delta) {
+  cantidad = Math.max(1, cantidad + delta);
+  document.getElementById('cant-display').textContent = cantidad;
+}
+
+function irPago() {
+  const importe = precio * cantidad;
+  document.getElementById('resumen-venta').innerHTML = `
+    <div class="resumen-fila">
+      <span class="resumen-label">Artículo</span>
+      <span class="resumen-valor">${articulo.descripcion}</span>
+    </div>
+    <div class="resumen-fila">
+      <span class="resumen-label">Cliente</span>
+      <span class="resumen-valor">${cliente.nombre}</span>
+    </div>
+    <div class="resumen-fila">
+      <span class="resumen-label">Cantidad</span>
+      <span class="resumen-valor">${cantidad} ud.</span>
+    </div>
+    <div class="resumen-fila">
+      <span class="resumen-label">Precio unit.</span>
+      <span class="resumen-valor">${fmt(precio)} € ${especial ? '<span class="badge-esp">★ Especial</span>' : ''}</span>
+    </div>
+    <div class="resumen-total">${fmt(importe)} €</div>`;
+  ir('pago');
+}
+
+function elegirPago(tipo) {
+  if (tipo === 'credito') {
+    confirmarVenta('credito');
+  } else {
+    const importe = precio * cantidad;
+    document.getElementById('importe-cobro').textContent = fmt(importe) + ' €';
+    document.getElementById('importe-sub').textContent =
+      `${cantidad} × ${fmt(precio)} €  ·  ${cliente.nombre}`;
+    ir('cobro');
+  }
+}
+
+async function confirmarVenta(tipoPago) {
+  const res = await fetch('/api/albaranes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cliente_id: cliente.id,
+      operario_id: operario.id,
+      lineas: [{
+        articulo_id: articulo.id,
+        cantidad: cantidad,
+        precio_unitario: precio,
+        es_precio_especial: especial
+      }]
+    })
+  }).then(r => r.json());
+
+  document.getElementById('exito-albaran').textContent = res.numero;
+  document.getElementById('exito-sub').textContent =
+    tipoPago === 'credito'
+      ? `${fmt(res.total)} € · A crédito · ${cliente.nombre}`
+      : `${fmt(res.total)} € · Cobrado · ${cliente.nombre}`;
+  ir('exito');
+}
+
+function nuevaVenta() {
+  // Mantiene operario y artículo del día, solo cambia cliente y cantidad
+  cliente = null;
+  cantidad = 1;
+  ir('cliente');
+  document.getElementById('buscador-cli').value = '';
+  renderClientes(clientes);
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+</script>
+</body>
+</html>

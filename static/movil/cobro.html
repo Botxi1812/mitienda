@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mi Tienda — Cobro</title>
+<link rel="stylesheet" href="/static/movil/comun.css">
+<style>
+  .importe-grande {
+    font-size: 58px; font-weight: 800; color: #1e3a5f;
+    text-align: center; margin: 24px 0 8px;
+  }
+  .importe-sub { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 40px; }
+  .btn-cobrar {
+    width: 100%; padding: 24px; border-radius: 16px;
+    background: #059669; color: #fff; border: none;
+    font-size: 20px; font-weight: 700; cursor: pointer;
+  }
+  .btn-cobrar:active { background: #047857; transform: scale(.97); }
+</style>
+</head>
+<body>
+<header>
+  <button class="btn-atras" onclick="history.back()">‹</button>
+  <h1>🏪 Mi Tienda</h1>
+</header>
+<main>
+  <div class="paso-titulo">Cobro en efectivo</div>
+  <div class="paso-pregunta">Importe a cobrar</div>
+  <div class="importe-grande" id="importe"></div>
+  <div class="importe-sub" id="detalle"></div>
+  <button class="btn-cobrar" onclick="cobrar()">✓ Cobrado — Confirmar venta</button>
+</main>
+<script>
+const op       = JSON.parse(localStorage.getItem('operario') || 'null');
+const art      = JSON.parse(localStorage.getItem('articulo') || 'null');
+const cli      = JSON.parse(localStorage.getItem('cliente')  || 'null');
+const cantidad = parseInt(localStorage.getItem('cantidad') || '1');
+if (!op || !art || !cli) window.location.href = '/movil';
+
+let precio = 0, especial = false;
+
+fetch(`/api/precio/${cli.id}/${art.id}`)
+  .then(r => r.json())
+  .then(data => {
+    precio = data.precio;
+    especial = data.especial;
+    const importe = precio * cantidad;
+    document.getElementById('importe').textContent = fmt(importe) + ' €';
+    document.getElementById('detalle').textContent = `${cantidad} × ${fmt(precio)} €  ·  ${cli.nombre}`;
+  });
+
+async function cobrar() {
+  const res = await fetch('/api/albaranes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cliente_id: cli.id,
+      operario_id: op.id,
+      lineas: [{ articulo_id: art.id, cantidad, precio_unitario: precio, es_precio_especial: especial }]
+    })
+  }).then(r => r.json());
+  localStorage.setItem('ultimo_albaran', JSON.stringify({ ...res, tipo: 'contado' }));
+  window.location.href = '/static/movil/exito.html';
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+</script>
+</body>
+</html>

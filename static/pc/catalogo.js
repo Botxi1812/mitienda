@@ -1,0 +1,400 @@
+/**
+ * catalogo.js — Renderer genérico para páginas de catálogo.
+ *
+ * Uso: la página HTML define window.__TABLA__ (nombre en tabla_definiciones)
+ * y carga este script. Hace todo lo demás automáticamente.
+ *
+ * Variables que la página puede definir antes de cargar este script:
+ *   window.__TABLA__       = 'clientes'   (obligatorio)
+ */
+
+// ── Estado global ─────────────────────────────────────────────────────────────
+let _cfg = null;          // config completa del servidor (/api/tablas/{tabla}/config)
+let _datos = [];          // lista de registros cargados
+let _editId = null;       // id del registro que se está editando (null = nuevo)
+let _sortCol = null;      // columna de ordenación actual
+let _sortDir = 1;         // dirección: 1 asc, -1 desc
+let _camposExtra = [];    // campos personalizados (es_estandar=0)
+let _colsDef = [];        // todas las columnas disponibles [{k, l}]
+let _colsVis = [];        // columnas actualmente visibles
+let _perfilActivo = null;
+let _perfilesLista = [];
+let _operario = null;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function initCatalog() {
+  const tabla = window.__TABLA__;
+  if (!tabla) { document.body.innerHTML = '<p style="color:red">Error: window.__TABLA__ no definido</p>'; return; }
+
+  _operario = initHeader();
+  renderNavDinamica();
+
+  _cfg = await fetch(`/api/tablas/${tabla}/config`).then(r => r.json());
+
+  document.title = `Mi Tienda — ${_cfg.etiqueta}`;
+
+  // Columnas: estándar + personalizadas
+  _camposExtra = _cfg.campos.filter(c => !c.es_estandar);
+  const colsEstandar = _cfg.campos.filter(c => c.es_estandar).map(c => ({k: c.nombre, l: c.etiqueta}));
+  const colsExtra    = _camposExtra.map(c => ({k: c.nombre, l: c.etiqueta}));
+  _colsDef = [...colsEstandar, ...colsExtra];
+  _sortCol = _cfg.campo_principal || _colsDef[0]?.k || 'id';
+
+  // Render estructura de la página
+  _renderEstructura();
+
+  await Promise.all([_cargarDatos(), _cargarPerfiles()]);
+}
+
+// ── Carga de datos ────────────────────────────────────────────────────────────
+async function _cargarDatos() {
+  _datos = await fetch(`/api/entidad/${window.__TABLA__}`).then(r => r.json());
+  _render();
+}
+
+// ── Render tabla ──────────────────────────────────────────────────────────────
+function _render() {
+  const q = (document.getElementById('cat-buscador')?.value || '').toLowerCase();
+  const campoBusq = [_cfg.campo_principal, _cfg.campo_secundario].filter(Boolean);
+
+  let lista = _datos;
+  if (q) {
+    lista = _datos.filter(row =>
+      campoBusq.some(c => String(row[c] || '').toLowerCase().includes(q)) ||
+      Object.values(row).some(v => String(v || '').toLowerCase().includes(q))
+    );
+  }
+
+  const sorted = ordenarTabla(lista, _sortCol, _sortDir);
+  const count = document.getElementById('cat-count');
+  if (count) count.textContent = `${sorted.length} ${sorted.length === 1 ? _cfg.etiqueta_singular : _cfg.etiqueta}`.toLowerCase();
+
+  _renderCabecera();
+
+  const tb = document.getElementById('cat-tbody');
+  if (!sorted.length) {
+    tb.innerHTML = `<tr><td colspan="${_colsVis.length}" class="empty">Sin resultados</td></tr>`;
+    return;
+  }
+  tb.innerHTML = sorted.map(row => `
+    <tr onclick="catAbrir(${row.id})" style="cursor:pointer">
+      ${_colsVis.map(col => _renderCell(row, col.k)).join('')}
+    </tr>`).join('');
+}
+
+function _renderCabecera() {
+  const th = document.getElementById('cat-thead');
+  if (!th) return;
+  th.innerHTML = '<tr>' + _colsVis.map(c =>
+    `<th onclick="_sortBy('${c.k}')" style="cursor:pointer">${c.l} ↕</th>`
+  ).join('') + '</tr>';
+}
+
+function _sortBy(col) {
+  if (_sortCol === col) _sortDir *= -1; else { _sortCol = col; _sortDir = 1; }
+  _render();
+}
+
+function _renderCell(row, k) {
+  const v = row[k];
+  if (v === null || v === undefined || v === '') return `<td style="color:#9ca3af">—</td>`;
+  // Precio: formatear con 2 decimales si es número
+  const campoDef = _cfg.campos.find(c => c.nombre === k);
+  if (campoDef?.tipo === 'numero' && !isNaN(Number(v))) {
+    return `<td style="text-align:right">${fmt(Number(v))}</td>`;
+  }
+  return `<td>${v}</td>`;
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function catAbrir(id) {
+  _editId = id || null;
+  const row = id ? _datos.find(x => x.id === id) : null;
+
+  document.getElementById('cat-msg-error').style.display = 'none';
+  document.getElementById('cat-msg-ok').style.display = 'none';
+  document.getElementById('cat-m-titulo').textContent =
+    id ? `Editar ${_cfg.etiqueta_singular}` : `Nuevo ${_cfg.etiqueta_singular}`;
+
+  // Rellenar campos estándar dinámicamente
+  _cfg.campos.filter(c => c.es_estandar).forEach(c => {
+    const el = document.getElementById(`cat-f-${c.nombre}`);
+    if (el) el.value = row ? (row[c.nombre] ?? '') : '';
+  });
+
+  // Selector de padre (ej: departamento para operarios)
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
+    const sel = document.getElementById('cat-f-padre');
+    if (sel && row) sel.value = row[_cfg.campo_padre_fk] ?? '';
+  }
+
+  // Campos extra
+  document.getElementById('cat-campos-extra').innerHTML =
+    renderCamposExtra(_camposExtra, row || {});
+
+  document.getElementById('cat-modal').classList.add('show');
+  // Focus primer campo
+  const first = document.querySelector('#cat-modal input:not([disabled])');
+  if (first) first.focus();
+}
+
+function catCerrar() {
+  document.getElementById('cat-modal').classList.remove('show');
+}
+
+async function catGuardar() {
+  const body = {};
+
+  // Recoger campos estándar
+  _cfg.campos.filter(c => c.es_estandar).forEach(c => {
+    const el = document.getElementById(`cat-f-${c.nombre}`);
+    if (el) body[c.nombre] = el.value.trim();
+  });
+
+  // Recoger FK padre
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
+    const sel = document.getElementById('cat-f-padre');
+    if (sel) {
+      const val = sel.value;
+      body[_cfg.campo_padre_fk] = val ? parseInt(val) : null;
+      // También actualizar el campo texto snapshot (ej: 'departamento')
+      const opt = sel.options[sel.selectedIndex];
+      const campoTexto = _cfg.campo_padre_fk.replace('_id', '');
+      if (opt && opt.value) body[campoTexto] = opt.text;
+    }
+  }
+
+  // Validar requeridos
+  const requeridos = _cfg.campos.filter(c => c.es_requerido || c.es_bloqueado_venta);
+  for (const c of requeridos) {
+    if (!body[c.nombre]) {
+      _showError(`"${c.etiqueta}" es obligatorio`); return;
+    }
+  }
+
+  // Campos extra personalizados
+  const extra = recogerCamposExtra(_camposExtra);
+  Object.assign(body, extra);
+
+  const url    = _editId ? `/api/entidad/${window.__TABLA__}/${_editId}` : `/api/entidad/${window.__TABLA__}`;
+  const method = _editId ? 'PUT' : 'POST';
+
+  try {
+    const res  = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) { _showError(data.detail || 'Error al guardar'); return; }
+    _showOk(_editId ? `${_cfg.etiqueta_singular} actualizado` : `${_cfg.etiqueta_singular} creado`);
+    await _cargarDatos();
+    setTimeout(catCerrar, 1200);
+  } catch(e) {
+    _showError('Error de conexión: ' + e.message);
+  }
+}
+
+function _showError(msg) {
+  const el = document.getElementById('cat-msg-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('cat-msg-ok').style.display = 'none';
+}
+function _showOk(msg) {
+  const el = document.getElementById('cat-msg-ok');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('cat-msg-error').style.display = 'none';
+}
+
+// ── Perfiles ──────────────────────────────────────────────────────────────────
+async function _cargarPerfiles() {
+  if (!_operario) return;
+  _perfilesLista = await apiCargarPerfiles(window.__TABLA__, _operario.id);
+  renderSelectPerfiles(_perfilesLista, _perfilActivo?.id);
+  document.getElementById('btn-borrar-perfil').style.display = _perfilActivo ? 'block' : 'none';
+}
+
+function catAplicarPerfil(id) {
+  if (!id) {
+    _perfilActivo = null;
+    document.getElementById('btn-borrar-perfil').style.display = 'none';
+    document.getElementById('perfil-info').textContent = '';
+    _colsVis = [..._colsDef]; _render(); return;
+  }
+  const p = _perfilesLista.find(x => x.id == id);
+  if (!p) return;
+  _perfilActivo = p;
+  document.getElementById('btn-borrar-perfil').style.display = 'block';
+  document.getElementById('perfil-info').textContent = `Perfil: ${p.nombre}`;
+  if (p.config?.columnas) {
+    _colsVis = _colsDef.filter(c => p.config.columnas.includes(c.k));
+    if (!_colsVis.length) _colsVis = [..._colsDef];
+  } else {
+    _colsVis = [..._colsDef];
+  }
+  _render();
+}
+
+function catAbrirModalPerfil() {
+  document.getElementById('perfil-nombre').value = _perfilActivo ? _perfilActivo.nombre : '';
+  const activos = new Set(_perfilActivo?.config?.columnas || _colsDef.map(c => c.k));
+  document.getElementById('perfil-cols-check').innerHTML = _colsDef.map(c =>
+    `<label><input type="checkbox" id="cc-${c.k}" ${activos.has(c.k) ? 'checked' : ''}> ${c.l}</label>`
+  ).join('');
+  document.getElementById('modal-perfil').classList.add('show');
+  document.getElementById('perfil-nombre').focus();
+}
+
+function catCerrarModalPerfil() {
+  document.getElementById('modal-perfil').classList.remove('show');
+}
+
+async function catGuardarPerfil() {
+  const nombre = document.getElementById('perfil-nombre').value.trim();
+  if (!nombre) { alert('Escribe un nombre para el perfil'); return; }
+  const columnas = _colsDef.filter(c => document.getElementById(`cc-${c.k}`)?.checked).map(c => c.k);
+  const config = { columnas };
+  if (_perfilActivo) {
+    await apiActualizarPerfil(_perfilActivo.id, window.__TABLA__, _operario.id, nombre, config);
+    _perfilActivo.nombre = nombre; _perfilActivo.config = config;
+    catAplicarPerfil(_perfilActivo.id);
+  } else {
+    const res = await apiCrearPerfil(window.__TABLA__, _operario.id, nombre, config);
+    if (res.ok) {
+      await _cargarPerfiles();
+      document.getElementById('perfil-select').value = res.id;
+      catAplicarPerfil(res.id);
+    }
+  }
+  catCerrarModalPerfil();
+  await _cargarPerfiles();
+}
+
+async function catBorrarPerfil() {
+  if (!_perfilActivo) return;
+  if (!confirm(`¿Borrar el perfil "${_perfilActivo.nombre}"?`)) return;
+  await apiBorrarPerfil(_perfilActivo.id);
+  _perfilActivo = null; _colsVis = [..._colsDef];
+  document.getElementById('perfil-select').value = '';
+  document.getElementById('btn-borrar-perfil').style.display = 'none';
+  document.getElementById('perfil-info').textContent = '';
+  _render(); await _cargarPerfiles();
+}
+
+// ── Construcción dinámica del modal ───────────────────────────────────────────
+function _buildModalFields() {
+  const campos = _cfg.campos.filter(c => c.es_estandar);
+  let html = '';
+
+  // Si tiene padre (FK), renderizar selector primero (antes que los campos propios)
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk && _cfg.padre_opciones) {
+    const td_padre = null; // etiqueta del campo padre
+    const label = _cfg.campo_padre_fk.replace('_id', '');
+    const campoLabel = campos.find(c => c.nombre === label.replace('_id',''))?.etiqueta
+                    || label.charAt(0).toUpperCase() + label.slice(1);
+    html += `<div class="campo">
+      <label>${campoLabel}</label>
+      <select id="cat-f-padre">
+        <option value="">— seleccionar —</option>
+        ${(_cfg.padre_opciones || []).map(o => `<option value="${o.id}">${o.label}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+
+  // Campos estándar del modelo
+  const grupoDoble = [];
+  campos.forEach(c => {
+    // Ocultar el campo texto snapshot de la FK padre (ej: 'departamento' si tenemos 'departamento_id')
+    const campoFkTexto = _cfg.campo_padre_fk?.replace('_id', '');
+    if (campoFkTexto && c.nombre === campoFkTexto) return;
+
+    const required = c.es_bloqueado_venta ? ' *' : '';
+    const disabled = '';
+    let input = '';
+
+    if (c.tipo === 'numero') {
+      input = `<input id="cat-f-${c.nombre}" type="number" step="any" placeholder="0">`;
+    } else if (c.tipo === 'fecha') {
+      input = `<input id="cat-f-${c.nombre}" type="date">`;
+    } else if (c.tipo === 'lista' && c.opciones) {
+      const opts = c.opciones.split(',').map(o => o.trim());
+      input = `<select id="cat-f-${c.nombre}">
+        <option value="">— seleccionar —</option>
+        ${opts.map(o => `<option value="${o}">${o}</option>`).join('')}
+      </select>`;
+    } else if (c.nombre === 'email') {
+      input = `<input id="cat-f-${c.nombre}" type="email" placeholder="${c.etiqueta}">`;
+    } else if (c.nombre === 'telefono') {
+      input = `<input id="cat-f-${c.nombre}" type="tel" placeholder="${c.etiqueta}">`;
+    } else {
+      input = `<input id="cat-f-${c.nombre}" type="text" placeholder="${c.etiqueta}">`;
+    }
+
+    grupoDoble.push(`<div class="campo"><label>${c.etiqueta}${required}</label>${input}</div>`);
+  });
+
+  // Agrupar de dos en dos los campos que no sean el campo principal (que va solo)
+  const principal = campos.find(c => c.nombre === _cfg.campo_principal);
+  const resto = campos.filter(c => {
+    const campoFkTexto = _cfg.campo_padre_fk?.replace('_id', '');
+    return c.nombre !== _cfg.campo_principal && !(campoFkTexto && c.nombre === campoFkTexto);
+  });
+
+  if (principal) {
+    html += `<div class="campo"><label>${principal.etiqueta}${principal.es_bloqueado_venta ? ' *' : ''}</label>
+      <input id="cat-f-${principal.nombre}" type="text" placeholder="${principal.etiqueta}">
+    </div>`;
+  }
+
+  // Pares de campos
+  for (let i = 0; i < resto.length; i += 2) {
+    if (resto[i+1]) {
+      html += `<div class="campo-row">`;
+    }
+    [resto[i], resto[i+1]].filter(Boolean).forEach(c => {
+      const req = c.es_bloqueado_venta ? ' *' : '';
+      let input = '';
+      if (c.tipo === 'numero') {
+        input = `<input id="cat-f-${c.nombre}" type="number" step="any" placeholder="0">`;
+      } else if (c.nombre === 'email') {
+        input = `<input id="cat-f-${c.nombre}" type="email" placeholder="${c.etiqueta}">`;
+      } else if (c.nombre === 'telefono') {
+        input = `<input id="cat-f-${c.nombre}" type="tel" placeholder="${c.etiqueta}">`;
+      } else {
+        input = `<input id="cat-f-${c.nombre}" type="text" placeholder="${c.etiqueta}">`;
+      }
+      html += `<div class="campo"><label>${c.etiqueta}${req}</label>${input}</div>`;
+    });
+    if (resto[i+1]) html += `</div>`;
+    else if (!resto[i+1] && i < resto.length - 1) { /* solo uno */ }
+  }
+
+  return html;
+}
+
+// ── Render estructura de la página ────────────────────────────────────────────
+function _renderEstructura() {
+  const tabla = window.__TABLA__;
+  const ruta  = _cfg.ruta || tabla;
+
+  document.querySelector('title').textContent = `Mi Tienda — ${_cfg.etiqueta}`;
+
+  // Header
+  document.getElementById('cat-header-titulo').innerHTML =
+    `<h1>&#127978; Mi Tienda</h1><nav class="nav-links" id="nav-dinamica"></nav>`;
+
+  // Toolbar
+  document.getElementById('cat-toolbar').innerHTML = `
+    <input class="buscador" id="cat-buscador" type="text"
+      placeholder="Buscar ${_cfg.etiqueta.toLowerCase()}…" oninput="_render()">
+    <span class="count" id="cat-count"></span>
+    <button class="btn-nuevo" onclick="catAbrir()">+ Nuevo ${_cfg.etiqueta_singular.toLowerCase()}</button>`;
+
+  // Modal campos
+  document.getElementById('cat-modal-campos').innerHTML = _buildModalFields();
+
+  // Inicializar columnas visibles (por defecto todas)
+  _colsVis = [..._colsDef];
+
+  // Disparar nav dinámica
+  renderNavDinamica();
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+initCatalog();

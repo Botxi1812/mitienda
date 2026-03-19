@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls c:/mitienda/*.py c:/mitienda/static/pc/*.html)",
+      "Bash(c:/mitienda/static/pc/articulos.html:*)",
+      "Bash(c:/mitienda/static/pc/trabajadores.html:*)",
+      "Bash(__NEW_LINE_c3b662658508a58c__ cat:*)",
+      "Bash(c:/mitienda/static/pc/departamentos.html:*)",
+      "Bash(gh --version)"
+    ]
+  }
+}

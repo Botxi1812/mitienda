@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Tienda — Configuración</title>
+<link rel="stylesheet" href="/static/pc/comun.css">
+<style>
+  .params-bar { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);padding:16px 24px;margin-bottom:20px;display:flex;align-items:center;gap:32px;flex-wrap:wrap; }
+  .params-bar h2 { font-size:14px;font-weight:700;color:#1e3a5f;white-space:nowrap; }
+  .param-item { display:flex;align-items:center;gap:10px; }
+  .param-item label { font-size:13px;color:#374151;white-space:nowrap; }
+  .param-input { width:70px;padding:6px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;font-weight:600;color:#1e3a5f;text-align:center; }
+  .param-input:focus { outline:none;border-color:#3b82f6; }
+  .btn-param { padding:6px 14px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
+  .btn-param:hover { background:#1e40af; }
+  .param-desc { font-size:11px;color:#9ca3af; }
+  .config-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px; }
+  @media(max-width:900px){ .config-grid { grid-template-columns:1fr; } }
+  .tabla-card { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);overflow:hidden; }
+  .tabla-card-header { background:#1e3a5f;color:#fff;padding:12px 18px;display:flex;align-items:center;justify-content:space-between; }
+  .tabla-card-header h3 { font-size:14px;font-weight:600; }
+  .contadores { font-size:11px;color:#93c5fd; }
+  .contador-ok  { color:#6ee7b7; }
+  .contador-max { color:#fca5a5; }
+  .tabla-card-body { padding:14px 18px; }
+  .campo-row { display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;border:1px solid #f3f4f6;transition:background .1s; }
+  .campo-row:hover { background:#f9fafb; }
+  .campo-row.estandar { background:#f0fdf4;border-color:#bbf7d0; }
+  .campo-row.archivado { opacity:.5;background:#f9fafb; }
+  .campo-icono { font-size:13px;flex-shrink:0;width:18px;text-align:center; }
+  .campo-info { flex:1;min-width:0; }
+  .campo-etiqueta { font-size:13px;font-weight:600;color:#111827; }
+  .campo-meta { font-size:11px;color:#9ca3af;margin-top:1px; }
+  .badge { font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px;white-space:nowrap;flex-shrink:0; }
+  .badge-col    { background:#dbeafe;color:#1d4ed8; }
+  .badge-json   { background:#fef3c7;color:#b45309; }
+  .badge-ventas { background:#dcfce7;color:#16a34a; }
+  .btn-accion { background:none;border:none;cursor:pointer;font-size:15px;padding:2px 5px;border-radius:6px;transition:background .1s;flex-shrink:0; }
+  .btn-accion:hover { background:#f3f4f6; }
+  .btns-add { display:flex;gap:8px;margin-top:10px; }
+  .btn-add-campo { flex:1;padding:8px;border:1.5px dashed #d1d5db;border-radius:8px;background:none;color:#6b7280;font-size:12px;cursor:pointer;transition:all .15s; }
+  .btn-add-campo:hover { border-color:#3b82f6;color:#3b82f6;background:#eff6ff; }
+  .btn-add-campo:disabled { opacity:.4;cursor:not-allowed; }
+  .ventas-section { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);padding:20px 24px;margin-bottom:20px; }
+  .ventas-section h2 { font-size:15px;font-weight:700;color:#1e3a5f;margin-bottom:4px; }
+  .ventas-section p  { font-size:13px;color:#6b7280;margin-bottom:16px; }
+  .arbol-tabla { margin-bottom:10px; }
+  .arbol-titulo { display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#374151;padding:7px 12px;background:#f9fafb;border-radius:8px;cursor:pointer;user-select:none; }
+  .arbol-titulo:hover { background:#f3f4f6; }
+  .arbol-toggle { font-size:11px;color:#9ca3af;transition:transform .15s; }
+  .arbol-toggle.open { transform:rotate(90deg); }
+  .arbol-campos { padding:4px 0 4px 22px;display:none; }
+  .arbol-campos.show { display:block; }
+  .campo-check { display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:background .1s; }
+  .campo-check:hover { background:#f3f4f6; }
+  .campo-check input { width:15px;height:15px;cursor:pointer;accent-color:#1e3a5f; }
+  .campo-check label { font-size:13px;color:#374151;cursor:pointer;flex:1; }
+  /* Sección tablas registradas */
+  .tablas-section { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);padding:20px 24px;margin-bottom:20px; }
+  .tablas-section h2 { font-size:15px;font-weight:700;color:#1e3a5f;margin-bottom:14px; }
+  .tabla-def-row { display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;border:1px solid #f3f4f6;margin-bottom:6px; }
+  .tabla-def-row:hover { background:#f9fafb; }
+  .tabla-def-icono { font-size:18px;width:28px;text-align:center; }
+  .tabla-def-info { flex:1; }
+  .tabla-def-nombre { font-size:13px;font-weight:600;color:#111827; }
+  .tabla-def-meta { font-size:11px;color:#9ca3af; }
+  .badge-sistema { background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px; }
+  /* Modal */
+  .form-row { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+  .ayuda-box { font-size:12px;color:#6b7280;padding:10px 12px;background:#f9fafb;border-radius:8px;margin-bottom:4px;line-height:1.5; }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:16px">
+    <h1>&#127978; Mi Tienda</h1>
+    <nav class="nav-links" id="nav-dinamica"></nav>
+  </div>
+  <div class="user-info">
+    <div class="avatar" id="avatar">?</div>
+    <div id="op-nombre"></div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- PARÁMETROS GLOBALES -->
+  <div class="params-bar">
+    <h2>&#9881;&#65039; Parámetros globales</h2>
+    <div class="param-item">
+      <label>Máx. columnas por tabla</label>
+      <input class="param-input" id="p-max-columnas" type="number" min="1" max="20">
+      <button class="btn-param" onclick="guardarParam('max_columnas','p-max-columnas')">Guardar</button>
+      <span class="param-desc">Campos con columna real en BD</span>
+    </div>
+    <div class="param-item">
+      <label>Máx. campos JSON por tabla</label>
+      <input class="param-input" id="p-max-json" type="number" min="1" max="50">
+      <button class="btn-param" onclick="guardarParam('max_json','p-max-json')">Guardar</button>
+      <span class="param-desc">Campos almacenados en JSON</span>
+    </div>
+  </div>
+
+  <!-- TABLAS REGISTRADAS -->
+  <div class="tablas-section">
+    <h2>Tablas registradas</h2>
+    <div id="tablas-def-lista"><div style="color:#9ca3af;font-size:13px">Cargando…</div></div>
+  </div>
+
+  <!-- CAMPOS EN LÍNEA DE VENTA -->
+  <div class="ventas-section">
+    <h2>Campos que se copian en cada línea de venta</h2>
+    <p>Los campos <strong>Básico</strong> se graban siempre y no se pueden desactivar. Los campos <strong>Estándar</strong> están marcados por defecto — si los desmarcas, las siguientes ventas guardarán ese campo en blanco.</p>
+    <div id="arbol-ventas"><div style="color:#9ca3af;font-size:13px">Cargando…</div></div>
+  </div>
+
+  <!-- CAMPOS POR TABLA -->
+  <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px">
+    Campos personalizados por tabla
+  </div>
+  <div class="config-grid" id="config-grid">
+    <div style="color:#9ca3af;padding:20px">Cargando…</div>
+  </div>
+
+</main>
+
+<!-- MODAL NUEVO CAMPO -->
+<div class="modal-bg" id="modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-titulo">
+      <span id="m-titulo">Nuevo campo</span>
+      <button class="btn-cerrar" onclick="cerrarModal()">&#215;</button>
+    </div>
+    <div class="msg msg-error" id="msg-error"></div>
+    <div class="msg msg-ok"    id="msg-ok"></div>
+    <input type="hidden" id="m-tabla">
+    <input type="hidden" id="m-tipo-campo">
+    <div class="ayuda-box" id="m-ayuda"></div>
+    <div class="campo"><label>Nombre visible *</label>
+      <input id="m-etiqueta" placeholder="Zona geográfica, Canal de venta…">
+    </div>
+    <div class="form-row">
+      <div class="campo"><label>Tipo de dato</label>
+        <select id="m-tipo" onchange="toggleOpciones()">
+          <option value="texto">Texto libre</option>
+          <option value="numero">Número</option>
+          <option value="fecha">Fecha</option>
+          <option value="lista">Lista de opciones</option>
+        </select>
+      </div>
+    </div>
+    <div class="campo" id="opciones-wrap" style="display:none">
+      <label>Opciones (separadas por coma)</label>
+      <input id="m-opciones" placeholder="Norte, Sur, Este, Oeste">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-guardar"  onclick="guardarCampo()">Crear campo</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/pc/comun.js"></script>
+<script>
+initHeader();
+renderNavDinamica();
+
+let configData = {}, maxCol = 5, maxJson = 10;
+let _tablasRegistradas = [];   // tabla_definiciones (de /api/tablas)
+let _nombresTabla = {};        // {nombre: etiqueta}
+
+// ── Carga ─────────────────────────────────────────────────────────────────────
+async function cargar() {
+  const [campos, params, tablasDef] = await Promise.all([
+    fetch('/api/config/campos').then(r => r.json()),
+    fetch('/api/config/parametros').then(r => r.json()),
+    fetch('/api/tablas').then(r => r.json()),
+  ]);
+
+  configData = campos;
+  _tablasRegistradas = tablasDef;
+  _nombresTabla = {};
+  tablasDef.forEach(t => { _nombresTabla[t.nombre] = t.etiqueta; });
+
+  params.forEach(p => {
+    if (p.clave === 'max_columnas') {
+      maxCol = parseInt(p.valor);
+      document.getElementById('p-max-columnas').value = maxCol;
+    }
+    if (p.clave === 'max_json') {
+      maxJson = parseInt(p.valor);
+      document.getElementById('p-max-json').value = maxJson;
+    }
+  });
+
+  renderTablasRegistradas();
+  renderConfigGrid();
+  renderArbolVentas();
+}
+
+async function guardarParam(clave, inputId) {
+  const val = document.getElementById(inputId).value;
+  const res  = await fetch(`/api/config/parametros/${clave}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({valor: val})
+  });
+  const data = await res.json();
+  if (res.ok) await cargar();
+  else alert(data.detail || 'Error al guardar');
+}
+
+// ── Tablas registradas ────────────────────────────────────────────────────────
+function renderTablasRegistradas() {
+  const html = _tablasRegistradas.map(t => {
+    const ruta = t.ruta || t.nombre;
+    const venta = t.en_venta_tipo !== 'ninguno'
+      ? `<span class="badge" style="background:#dcfce7;color:#16a34a;font-size:10px">${t.en_venta_tipo}</span>`
+      : '';
+    const sistema = t.es_sistema
+      ? '<span class="badge-sistema">sistema</span>'
+      : '';
+    return `
+    <div class="tabla-def-row">
+      <div class="tabla-def-icono">${t.icono || '&#128204;'}</div>
+      <div class="tabla-def-info">
+        <div class="tabla-def-nombre">${t.etiqueta}</div>
+        <div class="tabla-def-meta">/${ruta} · ${t.nombre}
+          ${t.padre_tabla ? ' · hijo de ' + (_nombresTabla[t.padre_tabla] || t.padre_tabla) : ''}
+        </div>
+      </div>
+      ${venta} ${sistema}
+      <a href="/${ruta}" style="font-size:12px;color:#3b82f6;text-decoration:none;padding:4px 10px;border:1px solid #93c5fd;border-radius:6px">Ver</a>
+    </div>`;
+  }).join('');
+  document.getElementById('tablas-def-lista').innerHTML = html ||
+    '<div style="color:#9ca3af;font-size:13px">Sin tablas registradas.</div>';
+}
+
+// ── Grid de campos personalizados ─────────────────────────────────────────────
+function renderConfigGrid() {
+  const tablasConCampos = _tablasRegistradas.filter(t => configData[t.nombre]);
+  if (!tablasConCampos.length) {
+    document.getElementById('config-grid').innerHTML = '<div style="color:#9ca3af;padding:20px">Sin tablas configuradas.</div>';
+    return;
+  }
+  document.getElementById('config-grid').innerHTML = tablasConCampos.map(t => {
+    const campos = configData[t.nombre] || [];
+    const nCol   = campos.filter(c => c.tipo_campo==='columna' && !c.es_estandar).length;
+    const nJson  = campos.filter(c => c.tipo_campo==='json' && c.activo).length;
+    const cCol   = `<span class="${nCol>=maxCol?'contador-max':'contador-ok'}">${nCol}/${maxCol} col.</span>`;
+    const cJson  = `<span class="${nJson>=maxJson?'contador-max':'contador-ok'}">${nJson}/${maxJson} json</span>`;
+    return `
+    <div class="tabla-card">
+      <div class="tabla-card-header">
+        <h3>${t.etiqueta}</h3>
+        <div class="contadores">${cCol} &nbsp; ${cJson}</div>
+      </div>
+      <div class="tabla-card-body">
+        ${campos.map(renderCampoRow).join('')}
+        <div class="btns-add">
+          <button class="btn-add-campo" onclick="abrirModal('${t.nombre}','columna')" ${nCol>=maxCol?'disabled':''}>
+            + Columna ${nCol>=maxCol?'(límite)':''}
+          </button>
+          <button class="btn-add-campo" onclick="abrirModal('${t.nombre}','json')" ${nJson>=maxJson?'disabled':''}>
+            + JSON ${nJson>=maxJson?'(límite)':''}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCampoRow(c) {
+  const icono = c.es_estandar ? '&#128274;' : (c.activo ? '&#9670;' : '&#9671;');
+  const clase  = c.es_estandar ? 'estandar' : (c.activo ? '' : 'archivado');
+  const badge  = c.tipo_campo==='columna'
+    ? '<span class="badge badge-col">Columna BD</span>'
+    : '<span class="badge badge-json">JSON</span>';
+  const bVentas = c.en_ventas ? '<span class="badge badge-ventas">En venta</span>' : '';
+  let btnAcc = '';
+  if (c.es_estandar) {
+    btnAcc = '<span style="font-size:11px;color:#9ca3af;padding:0 4px">estándar</span>';
+  } else if (c.activo) {
+    btnAcc = `<button class="btn-accion" onclick="archivar(${c.id})" title="Archivar campo">&#128230;</button>`;
+  } else {
+    btnAcc = `<button class="btn-accion" onclick="reactivar(${c.id})" title="Reactivar">&#9851;&#65039;</button>`;
+    if (c.tipo_campo === 'columna') {
+      btnAcc += `<button class="btn-accion" onclick="eliminarDefinitivo(${c.id},'${c.etiqueta}')" title="Eliminar definitivamente" style="color:#ef4444">&#128465;&#65039;</button>`;
+    }
+  }
+  return `
+  <div class="campo-row ${clase}">
+    <span class="campo-icono">${icono}</span>
+    <div class="campo-info">
+      <div class="campo-etiqueta">${c.etiqueta}</div>
+      <div class="campo-meta">${c.nombre} · ${c.tipo}</div>
+    </div>
+    ${badge} ${bVentas} ${btnAcc}
+  </div>`;
+}
+
+// ── Árbol de ventas ───────────────────────────────────────────────────────────
+function renderArbolVentas() {
+  const tablasOrdenadas = _tablasRegistradas.filter(t => configData[t.nombre]);
+  const html = tablasOrdenadas.map(t => {
+    const campos = (configData[t.nombre] || []).filter(c => c.activo);
+    if (!campos.length) return '';
+
+    // Resumen inline: campo etiquetas activas
+    const activosLabels = campos
+      .filter(c => c.es_bloqueado_venta || c.en_ventas)
+      .map(c => c.etiqueta);
+    const resumen = activosLabels.length
+      ? `<span style="font-size:11px;color:#6b7280;margin-left:10px;font-weight:normal;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${activosLabels.join(' · ')}</span>`
+      : `<span style="flex:1"></span>`;
+
+    const personalizados = campos.filter(c => !c.es_estandar);
+    const extraCounter = personalizados.length
+      ? `<span style="font-size:11px;color:#9ca3af;flex-shrink:0">${personalizados.filter(c=>c.en_ventas).length}/${personalizados.length} extra</span>`
+      : '';
+
+    return `
+    <div class="arbol-tabla">
+      <div class="arbol-titulo" onclick="toggleArbol('av-${t.nombre}',this)" style="gap:4px">
+        <span class="arbol-toggle">&#9654;</span>
+        <span style="flex-shrink:0">${t.etiqueta}</span>
+        ${resumen} ${extraCounter}
+      </div>
+      <div class="arbol-campos" id="av-${t.nombre}">
+        ${campos.map(c => {
+          if (c.es_bloqueado_venta) {
+            return `
+            <div class="campo-check" style="cursor:default">
+              <input type="checkbox" checked disabled style="cursor:not-allowed;opacity:.5">
+              <label style="color:#6b7280;cursor:default">${c.etiqueta}</label>
+              <span class="badge" style="background:#f0fdf4;color:#16a34a;font-size:10px;border:1px solid #bbf7d0">Básico</span>
+            </div>`;
+          } else if (c.es_estandar) {
+            return `
+            <div class="campo-check">
+              <input type="checkbox" id="cv-${c.id}" ${c.en_ventas?'checked':''} onchange="toggleVentas(${c.id})">
+              <label for="cv-${c.id}">${c.etiqueta}</label>
+              <span class="badge" style="background:#fef3c7;color:#b45309;font-size:10px">Estándar</span>
+            </div>`;
+          } else {
+            return `
+            <div class="campo-check">
+              <input type="checkbox" id="cv-${c.id}" ${c.en_ventas?'checked':''} onchange="toggleVentas(${c.id})">
+              <label for="cv-${c.id}">${c.etiqueta}</label>
+              ${c.tipo_campo==='columna'
+                ? '<span class="badge badge-col" style="font-size:10px">Columna</span>'
+                : '<span class="badge badge-json" style="font-size:10px">JSON</span>'}
+            </div>`;
+          }
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:#9ca3af;font-size:13px">Sin campos configurados.</div>';
+  document.getElementById('arbol-ventas').innerHTML = html;
+}
+
+function toggleArbol(id, el) {
+  document.getElementById(id).classList.toggle('show');
+  el.querySelector('.arbol-toggle').classList.toggle('open');
+}
+
+// ── Acciones ──────────────────────────────────────────────────────────────────
+async function toggleVentas(id) {
+  const cb  = document.getElementById(`cv-${id}`);
+  const res = await fetch(`/api/config/ventas/${id}`, {method:'POST'});
+  const data = await res.json();
+  if (!res.ok) { cb.checked = !cb.checked; alert(data.detail||'Error'); return; }
+  await cargar();
+}
+
+async function archivar(id) {
+  if (!confirm('¿Archivar este campo?\n\nCampos JSON: el historial queda intacto.\nCampos Columna: los datos históricos se conservan pero el campo deja de usarse.')) return;
+  const res  = await fetch(`/api/config/campos/${id}/archivar`, {method:'PATCH'});
+  const data = await res.json();
+  if (res.ok) await cargar(); else alert(data.detail||'Error');
+}
+
+async function eliminarDefinitivo(id, etiqueta) {
+  const confirmacion = prompt(
+    `⚠️ ELIMINAR DEFINITIVAMENTE\n\nEsto borra "${etiqueta}" de la configuración.\nLa columna quedará inactiva en la BD.\n\nEscribe el nombre exacto para confirmar:`
+  );
+  if (confirmacion !== etiqueta) {
+    if (confirmacion !== null) alert('Nombre incorrecto. No se ha eliminado nada.');
+    return;
+  }
+  const res  = await fetch(`/api/config/campos/${id}`, {method:'DELETE'});
+  const data = await res.json();
+  if (res.ok) await cargar(); else alert(data.detail || 'Error al eliminar');
+}
+
+async function reactivar(id) {
+  const res  = await fetch(`/api/config/campos/${id}/reactivar`, {method:'PATCH'});
+  const data = await res.json();
+  if (res.ok) await cargar(); else alert(data.detail||'Error al reactivar');
+}
+
+// ── Modal nuevo campo ─────────────────────────────────────────────────────────
+function abrirModal(tabla, tipoCampo) {
+  document.getElementById('m-tabla').value      = tabla;
+  document.getElementById('m-tipo-campo').value = tipoCampo;
+  document.getElementById('m-etiqueta').value   = '';
+  document.getElementById('m-opciones').value   = '';
+  document.getElementById('m-tipo').value       = 'texto';
+  document.getElementById('msg-error').style.display = 'none';
+  document.getElementById('msg-ok').style.display    = 'none';
+  const nombre = _nombresTabla[tabla] || tabla;
+  document.getElementById('m-titulo').textContent =
+    `Nuevo campo ${tipoCampo==='columna'?'Columna BD':'JSON'} en ${nombre}`;
+  document.getElementById('m-ayuda').textContent = tipoCampo === 'columna'
+    ? '&#128204; Columna BD: crea una columna real en la base de datos. Más eficiente para búsquedas.'
+    : '&#128230; JSON: se guarda en un campo flexible. Al archivar, el historial queda intacto.';
+  toggleOpciones();
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('m-etiqueta').focus();
+}
+
+function toggleOpciones() {
+  document.getElementById('opciones-wrap').style.display =
+    document.getElementById('m-tipo').value === 'lista' ? 'block' : 'none';
+}
+
+function cerrarModal() { document.getElementById('modal').classList.remove('show'); }
+
+async function guardarCampo() {
+  const etiqueta = document.getElementById('m-etiqueta').value.trim();
+  if (!etiqueta) { showMsg('msg-error','El nombre es obligatorio','error'); return; }
+  const body = {
+    tabla:      document.getElementById('m-tabla').value,
+    etiqueta,
+    tipo:       document.getElementById('m-tipo').value,
+    tipo_campo: document.getElementById('m-tipo-campo').value,
+    opciones:   document.getElementById('m-opciones').value.trim(),
+  };
+  const res  = await fetch('/api/config/campos', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { showMsg('msg-error', data.detail||'Error al crear', 'error'); return; }
+  showMsg('msg-ok','Campo creado correctamente','ok');
+  await cargar();
+  setTimeout(cerrarModal, 1200);
+}
+
+cargar();
+</script>
+</body>
+</html>

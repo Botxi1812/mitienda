@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mi Tienda — Artículo</title>
+<link rel="stylesheet" href="/static/movil/comun.css">
+</head>
+<body>
+<header>
+  <h1>🏪 Mi Tienda</h1>
+  <button class="btn-salir" onclick="salir()">Salir</button>
+</header>
+<main>
+  <div class="paso-titulo">Paso 1 de 3</div>
+  <div class="paso-pregunta">¿Qué vas a vender hoy?</div>
+  <div id="lista"></div>
+  <button class="btn-siguiente" id="btn-ok" disabled onclick="siguiente()">Continuar →</button>
+</main>
+<script>
+const op = JSON.parse(localStorage.getItem('operario') || 'null');
+if (!op) window.location.href = '/movil';
+
+let articulo = null;
+
+// Si ya tenía artículo del día lo recupera
+const artGuardado = JSON.parse(localStorage.getItem('articulo') || 'null');
+
+fetch('/api/articulos')
+  .then(r => r.json())
+  .then(arts => {
+    const lista = document.getElementById('lista');
+    arts.forEach(art => {
+      const btn = document.createElement('button');
+      btn.className = 'opcion-btn';
+      if (artGuardado && artGuardado.id === art.id) btn.classList.add('selected');
+      btn.innerHTML = `
+        <div class="opcion-icono" style="background:#1e3a5f;font-size:13px">${art.codigo}</div>
+        <div style="flex:1">
+          <div class="opcion-nombre">${art.descripcion}</div>
+          <div class="opcion-sub">${art.categoria} · ${fmt(art.precio)} €</div>
+        </div>`;
+      btn.onclick = () => {
+        document.querySelectorAll('.opcion-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        articulo = art;
+        document.getElementById('btn-ok').disabled = false;
+      };
+      lista.appendChild(btn);
+    });
+    if (artGuardado) {
+      articulo = artGuardado;
+      document.getElementById('btn-ok').disabled = false;
+    }
+  });
+
+function siguiente() {
+  localStorage.setItem('articulo', JSON.stringify(articulo));
+  window.location.href = '/static/movil/cliente.html';
+}
+function salir() {
+  localStorage.clear();
+  window.location.href = '/movil';
+}
+function fmt(n) {
+  return Number(n).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Tienda — Trabajadores</title>
+<link rel="stylesheet" href="/static/pc/comun.css">
+</head>
+<body>
+<header>
+  <div id="cat-header-titulo" style="display:flex;align-items:center;gap:16px">
+    <h1>&#127978; Mi Tienda</h1>
+    <nav class="nav-links" id="nav-dinamica"></nav>
+  </div>
+  <div class="user-info">
+    <div class="avatar" id="avatar">?</div>
+    <div id="op-nombre"></div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+</header>
+<main>
+  <div class="perfiles-bar">
+    <label>Vista:</label>
+    <select class="perfil-select" id="perfil-select" onchange="catAplicarPerfil(this.value)"><option value="">— sin perfil —</option></select>
+    <button class="btn-perfil btn-perfil-guardar" onclick="catAbrirModalPerfil()">&#128190; Guardar vista</button>
+    <button class="btn-perfil btn-perfil-borrar" id="btn-borrar-perfil" onclick="catBorrarPerfil()" style="display:none">&#128465;&#65039; Borrar esta vista</button>
+    <span id="perfil-info" style="font-size:12px;color:#9ca3af;margin-left:auto"></span>
+  </div>
+  <div class="toolbar" id="cat-toolbar"><span style="color:#9ca3af">Cargando…</span></div>
+  <div class="tabla-wrap"><div class="tabla-scroll">
+    <table><thead id="cat-thead"></thead>
+    <tbody id="cat-tbody"><tr><td class="empty">Cargando…</td></tr></tbody></table>
+  </div></div>
+</main>
+<div class="modal-bg" id="cat-modal">
+  <div class="modal">
+    <div class="modal-titulo"><span id="cat-m-titulo">Trabajador</span><button class="btn-cerrar" onclick="catCerrar()">&#215;</button></div>
+    <div class="msg msg-error" id="cat-msg-error" style="display:none"></div>
+    <div class="msg msg-ok"    id="cat-msg-ok"    style="display:none"></div>
+    <div id="cat-modal-campos"></div>
+    <div id="cat-campos-extra"></div>
+    <div class="modal-footer">
+      <button class="btn-cancelar" onclick="catCerrar()">Cancelar</button>
+      <button class="btn-guardar"  onclick="catGuardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+<div class="modal-perfil-bg" id="modal-perfil">
+  <div class="modal-perfil">
+    <h3>&#128190; Guardar vista actual</h3>
+    <input id="perfil-nombre" type="text" placeholder="Vista rápida…">
+    <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:8px;text-transform:uppercase">Columnas visibles</div>
+    <div class="perfil-cols-grid" id="perfil-cols-check"></div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button onclick="catCerrarModalPerfil()" style="flex:1;padding:10px;background:#f3f4f6;border:none;border-radius:8px;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="catGuardarPerfil()" style="flex:1;padding:10px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Guardar</button>
+    </div>
+  </div>
+</div>
+<script src="/static/pc/comun.js"></script>
+<script>window.__TABLA__ = 'operarios';</script>
+<script src="/static/pc/catalogo.js"></script>
+</body>
+</html>
