@@ -123,8 +123,8 @@ async function renderNavDinamica() {
     return `<a href="${href}"${active}>${label}</a>`;
   };
 
-  let html = link('/ventas', 'Nueva venta');
-  html += link('/consultas', 'Consultas');
+  let html = link('/ventas', 'Ventas');
+  html += link('/nueva-venta', 'Nueva venta');
   html += '<span class="nav-sep">|</span>';
 
   tablas.forEach(t => {
