@@ -39,6 +39,11 @@ async function initCatalog() {
   renderNavDinamica();
 
   _cfg = await fetch(`/api/tablas/${tabla}/config`).then(r => r.json());
+  // Si tiene padre, cargar sus opciones
+  if (_cfg.padre_tabla && !_cfg.padre_opciones?.length) {
+    _cfg.padre_opciones = await fetch(`/api/entidad/${_cfg.padre_tabla}`)
+      .then(r => r.json()).catch(() => []);
+  }
 
   document.title = `Mi Tienda — ${_cfg.etiqueta}`;
 
@@ -148,10 +153,10 @@ function catAbrir(id) {
     if (el) el.value = row ? (row[c.nombre] ?? '') : '';
   });
 
-  // Selector de padre (ej: departamento para operarios)
-  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
+  // Selector de padre (nexo = nombre, clave = nombre de tabla padre)
+  if (_cfg.padre_tabla) {
     const sel = document.getElementById('cat-f-padre');
-    if (sel && row) sel.value = row[_cfg.campo_padre_fk] ?? '';
+    if (sel && row) sel.value = row[_cfg.padre_tabla] ?? '';
   }
 
   // Campos extra
@@ -177,17 +182,10 @@ async function catGuardar() {
     if (el) body[c.nombre] = el.value.trim();
   });
 
-  // Recoger FK padre
-  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
+  // Recoger valor del padre (nexo = nombre, se guarda con clave = nombre de tabla padre)
+  if (_cfg.padre_tabla) {
     const sel = document.getElementById('cat-f-padre');
-    if (sel) {
-      const val = sel.value;
-      body[_cfg.campo_padre_fk] = val ? parseInt(val) : null;
-      // También actualizar el campo texto snapshot (ej: 'departamento')
-      const opt = sel.options[sel.selectedIndex];
-      const campoTexto = _cfg.campo_padre_fk.replace('_id', '');
-      if (opt && opt.value) body[campoTexto] = opt.text;
-    }
+    if (sel) body[_cfg.padre_tabla] = sel.value || '';
   }
 
   // Validar requeridos
@@ -312,21 +310,18 @@ async function catBorrarPerfil() {
 }
 
 // ── Construcción dinámica del modal ───────────────────────────────────────────
-function _buildModalFields() {
+async function _buildModalFields() {
   const campos = _cfg.campos.filter(c => c.es_principal);
   let html = '';
 
-  // Si tiene padre (FK), renderizar selector primero (antes que los campos propios)
-  if (_cfg.padre_tabla && _cfg.campo_padre_fk && _cfg.padre_opciones) {
-    const td_padre = null; // etiqueta del campo padre
-    const label = _cfg.campo_padre_fk.replace('_id', '');
-    const campoLabel = campos.find(c => c.nombre === label.replace('_id',''))?.etiqueta
-                    || label.charAt(0).toUpperCase() + label.slice(1);
+  // Si tiene padre, mostrar combo con los registros del padre (nexo = nombre)
+  if (_cfg.padre_tabla && _cfg.padre_opciones?.length) {
+    const labelPadre = _cfg.padre_tabla.charAt(0).toUpperCase() + _cfg.padre_tabla.slice(1);
     html += `<div class="campo">
-      <label>${campoLabel}</label>
+      <label>${labelPadre}</label>
       <select id="cat-f-padre">
         <option value="">— seleccionar —</option>
-        ${(_cfg.padre_opciones || []).map(o => `<option value="${o.id}">${o.label}</option>`).join('')}
+        ${_cfg.padre_opciones.map(o => `<option value="${o.nombre}">${o.nombre}</option>`).join('')}
       </select>
     </div>`;
   }
@@ -421,7 +416,7 @@ function _renderEstructura() {
     <button class="btn-nuevo" onclick="catAbrir()">+ Nuevo ${_cfg.etiqueta_singular.toLowerCase()}</button>`;
 
   // Modal campos
-  document.getElementById('cat-modal-campos').innerHTML = _buildModalFields();
+  document.getElementById('cat-modal-campos').innerHTML = await _buildModalFields();
 
   // Inicializar columnas visibles (por defecto todas)
   _colsVis = [..._colsDef];

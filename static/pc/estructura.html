@@ -179,6 +179,27 @@
   </div>
 </main>
 
+<!-- Modal editar relación -->
+<div class="modal-nueva-bg" id="modal-relacion">
+  <div class="modal-nueva">
+    <h3 id="relacion-titulo">Relación de tabla</h3>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
+      El nexo siempre es el campo <strong>nombre</strong>. Al elegir una tabla padre,
+      el formulario de creación mostrará un combo con sus registros.
+    </p>
+    <div class="campo">
+      <label>Esta tabla depende de</label>
+      <select id="relacion-padre">
+        <option value="">— sin relación —</option>
+      </select>
+    </div>
+    <div class="modal-nueva-footer">
+      <button class="btn-cancelar-nueva" onclick="cerrarModalRelacion()">Cancelar</button>
+      <button class="btn-guardar-nueva"  onclick="guardarRelacion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal nueva tabla -->
 <div class="modal-nueva-bg" id="modal-nueva">
   <div class="modal-nueva">
@@ -349,7 +370,7 @@ function renderNodos() {
         </div>
         <div class="nodo-campos">${camposHtml || '<div class="nodo-campo" style="color:#9ca3af">Sin campos extra</div>'}</div>
         <div class="nodo-footer">
-          <button class="btn-nodo btn-nodo-config" onclick="irConfig('${t.nombre}')">&#9881; Config</button>
+          <button class="btn-nodo btn-nodo-config" onclick="abrirModalRelacion('${t.nombre}')">&#128279; Relación</button>
           <button class="btn-nodo btn-nodo-del" onclick="eliminarTabla('${t.nombre}')"
             ${esFijo ? 'disabled title="Tabla con rol fijo en ventas"' : ''}>&#128465; Eliminar</button>
         </div>
@@ -446,14 +467,46 @@ function finDrag() {
 }
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
-function irConfig(tabla) {
-  window.location.href = '/configuracion#' + tabla;
+let _relacionTabla = null;
+
+function abrirModalRelacion(nombre) {
+  _relacionTabla = nombre;
+  const t = _tablas.find(x => x.nombre === nombre);
+  document.getElementById('relacion-titulo').textContent = `Relación — ${t.etiqueta}`;
+
+  const sel = document.getElementById('relacion-padre');
+  sel.innerHTML = '<option value="">— sin relación —</option>' +
+    _tablas.filter(x => x.nombre !== nombre)
+           .map(x => `<option value="${x.nombre}" ${t.padre_tabla===x.nombre?'selected':''}>${x.etiqueta}</option>`)
+           .join('');
+
+  document.getElementById('modal-relacion').classList.add('show');
+}
+
+function cerrarModalRelacion() {
+  document.getElementById('modal-relacion').classList.remove('show');
+  _relacionTabla = null;
+}
+
+async function guardarRelacion() {
+  const padre = document.getElementById('relacion-padre').value;
+  const res = await fetch(`/api/tablas/${_relacionTabla}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ padre_tabla: padre })
+  });
+  if (!res.ok) { alert('Error al guardar relación'); return; }
+  cerrarModalRelacion();
+  await init();
 }
 
 async function eliminarTabla(nombre) {
-  if (!confirm(`¿Eliminar la tabla "${nombre}" y todos sus datos?`)) return;
-  // TODO: endpoint DELETE /api/tablas/{nombre}
-  alert('Pendiente: endpoint de eliminacion de tabla');
+  const t = _tablas.find(x => x.nombre === nombre);
+  if (!confirm(`¿Eliminar la tabla "${t?.etiqueta || nombre}" y todos sus datos?`)) return;
+  const res = await fetch(`/api/tablas/${nombre}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) { alert(data.detail || 'Error al eliminar'); return; }
+  await init();
 }
 
 // ── Modal nueva tabla ─────────────────────────────────────────────────────────

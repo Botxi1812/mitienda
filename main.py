@@ -147,6 +147,18 @@ def crear_tabla(body: TablaIn, db: Session = Depends(get_db)):
         db.rollback(); raise HTTPException(400, str(e))
     return _tabla_dict(t)
 
+class TablaRelacionIn(BaseModel):
+    padre_tabla: str = ""
+
+@app.patch("/api/tablas/{nombre}")
+def patch_tabla(nombre: str, body: TablaRelacionIn, db: Session = Depends(get_db)):
+    t = db.query(models.TablaDefinicion).filter_by(nombre=nombre).first()
+    if not t:
+        raise HTTPException(404, f"Tabla '{nombre}' no encontrada")
+    t.padre_tabla = body.padre_tabla
+    db.commit(); db.refresh(t)
+    return _tabla_dict(t)
+
 @app.delete("/api/tablas/{nombre}")
 def eliminar_tabla(nombre: str, db: Session = Depends(get_db)):
     t = db.query(models.TablaDefinicion).filter_by(nombre=nombre).first()
@@ -174,7 +186,7 @@ def get_tabla_config(tabla: str, db: Session = Depends(get_db)):
     padre_opciones = []
     if t.padre_tabla:
         filas = db.query(models.Entidad).filter_by(tabla=t.padre_tabla).order_by(models.Entidad.nombre).all()
-        padre_opciones = [{"id": f.id, "label": f.nombre} for f in filas]
+        padre_opciones = [{"id": f.id, "nombre": f.nombre} for f in filas]
     return {**_tabla_dict(t), "campos": [_campo_dict(c) for c in campos], "padre_opciones": padre_opciones}
 
 # ── Entidades genericas (todas las tablas de catalogo) ────────────────────────
