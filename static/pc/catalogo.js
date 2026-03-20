@@ -54,7 +54,7 @@ async function initCatalog() {
   _colsDef = [...colsPrinc, ...colsExtra];
   _sortCol = _cfg.campo_principal || _colsDef[0]?.k || 'id';
 
-  _renderEstructura();
+  await _renderEstructura();
   _initMiTabla();
 
   await Promise.all([_cargarDatos(), _cargarPerfiles()]);
@@ -398,7 +398,7 @@ async function _buildModalFields() {
 }
 
 // ── Render estructura de la página ────────────────────────────────────────────
-function _renderEstructura() {
+async function _renderEstructura() {
   const tabla = window.__TABLA__;
   const ruta  = _cfg.ruta || tabla;
 
