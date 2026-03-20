@@ -514,7 +514,7 @@ function activarEdicion() {
 
 function cancelarEdicion() {
   modoEdicion = false;
-  document.getElementById('btn-editar').textContent = '&#9998;&#65039; Editar selección';
+  document.getElementById('btn-editar').innerHTML = '&#9998;&#65039; Editar selección';
   document.getElementById('btn-editar').classList.remove('activo');
   document.getElementById('barra-edicion').classList.remove('show');
   datos = datos.map(l => ({...originales[l.id]}));
