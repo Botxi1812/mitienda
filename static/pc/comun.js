@@ -133,6 +133,7 @@ async function renderNavDinamica() {
   });
 
   html += '<span class="nav-sep">|</span>';
+  html += link('/estructura', '&#128101; Estructura');
   html += link('/configuracion', '&#9881;&#65039; Config');
 
   nav.innerHTML = html;
