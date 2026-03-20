@@ -77,7 +77,7 @@ tablas = [
         en_nav=1, orden_nav=2, en_venta_tipo="lineas", en_filtros=1, es_sistema=1, activa=1),
     models.TablaDefinicion(nombre="operarios", etiqueta="Trabajadores", etiqueta_singular="Trabajador",
         icono="", ruta="trabajadores", campo_principal="nombre", campo_secundario="numero",
-        en_nav=1, orden_nav=3, en_venta_tipo="ninguno", en_filtros=1, es_sistema=1, activa=1),
+        en_nav=1, orden_nav=3, en_venta_tipo="ninguno", en_filtros=1, es_sistema=1, es_login=1, activa=1),
 ]
 for t in tablas:
     db.add(t)

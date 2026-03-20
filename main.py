@@ -62,13 +62,18 @@ def entidad_a_dict(e):
 # ── Login: operarios ──────────────────────────────────────────────────────────
 @app.get("/api/operarios")
 def get_operarios(db: Session = Depends(get_db)):
-    ops = db.query(models.Entidad).filter_by(tabla="operarios").order_by(models.Entidad.nombre).all()
+    # Buscar la tabla marcada como es_login=1; si no existe, devolver vacio
+    t = db.query(models.TablaDefinicion).filter_by(es_login=1, activa=1).first()
+    if not t:
+        return []
+    ops = db.query(models.Entidad).filter_by(tabla=t.nombre).order_by(models.Entidad.nombre).all()
+    campo_sec = t.campo_secundario or "numero"
     result = []
     for op in ops:
         d = parse_datos(op.datos)
         result.append({
             "id": op.id, "nombre": op.nombre,
-            "numero": d.get("numero", ""),
+            "numero": d.get(campo_sec, d.get("numero", "")),
             "departamento": d.get("departamento", ""),
         })
     return result
@@ -86,7 +91,7 @@ def _tabla_dict(t):
         "en_venta_tipo": t.en_venta_tipo,
         "en_venta_requerido": t.en_venta_requerido or 0,
         "en_filtros": t.en_filtros or 0,
-        "es_sistema": t.es_sistema or 0, "activa": t.activa,
+        "es_sistema": t.es_sistema or 0, "es_login": t.es_login or 0, "activa": t.activa,
     }
 
 def _campo_dict(c):
@@ -197,12 +202,21 @@ class VentaIn(BaseModel):
 def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
     if not body.lineas:
         raise HTTPException(400, "Sin lineas")
-    op = db.query(models.Entidad).filter_by(tabla="operarios", id=body.operario_id).first()
+    # Buscar tablas por rol, no por nombre
+    t_login    = db.query(models.TablaDefinicion).filter_by(es_login=1,        activa=1).first()
+    t_selector = db.query(models.TablaDefinicion).filter_by(en_venta_tipo="selector", activa=1).first()
+    t_lineas   = db.query(models.TablaDefinicion).filter_by(en_venta_tipo="lineas",   activa=1).first()
+    tabla_op  = t_login.nombre    if t_login    else None
+    tabla_cli = t_selector.nombre if t_selector else None
+    tabla_art = t_lineas.nombre   if t_lineas   else None
+    if not tabla_op or not tabla_art:
+        raise HTTPException(500, "Configuracion de ventas incompleta: falta tabla de login o de lineas")
+    op = db.query(models.Entidad).filter_by(tabla=tabla_op, id=body.operario_id).first()
     if not op:
         raise HTTPException(404, "Operario no encontrado")
     op_datos = parse_datos(op.datos)
     departamento = op_datos.get("departamento", "")
-    cli = db.query(models.Entidad).filter_by(tabla="clientes", id=body.cliente_id).first() if body.cliente_id else None
+    cli = db.query(models.Entidad).filter_by(tabla=tabla_cli, id=body.cliente_id).first() if (body.cliente_id and tabla_cli) else None
     cli_datos = parse_datos(cli.datos) if cli else {}
     ultimo = db.query(models.LineaVenta).order_by(models.LineaVenta.id.desc()).first()
     if ultimo and ultimo.numero_venta and ultimo.numero_venta.startswith("TCK-"):
@@ -212,9 +226,6 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
         num = 1
     numero = f"TCK-{num:05d}"
     ahora = datetime.now()
-    # Buscar tabla de articulos (puede llamarse de cualquier forma con en_venta_tipo='lineas')
-    t_art = db.query(models.TablaDefinicion).filter_by(en_venta_tipo="lineas").first()
-    tabla_art = t_art.nombre if t_art else "articulos"
     for l in body.lineas:
         art = db.query(models.Entidad).filter_by(tabla=tabla_art, id=l.articulo_id).first()
         if not art:

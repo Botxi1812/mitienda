@@ -23,6 +23,7 @@ class TablaDefinicion(Base):
     en_venta_requerido = Column(Integer, default=0)
     en_filtros         = Column(Integer, default=0)
     es_sistema         = Column(Integer, default=0)
+    es_login           = Column(Integer, default=0)   # 1 = esta tabla es la de usuarios/login
     activa             = Column(Integer, default=1)
 
 
