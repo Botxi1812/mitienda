@@ -34,12 +34,12 @@
   .tabla-wrap { background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);overflow:hidden; }
   .tabla-scroll { overflow-x:auto; }
   table { width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed; }
-  thead th { background:#1e3a5f;color:#fff;padding:10px;text-align:left;font-weight:600;font-size:11px;white-space:nowrap;user-select:none;position:relative;overflow:hidden; }
+  thead th { background:#1e3a5f;color:#fff;padding:10px;text-align:left;font-weight:600;font-size:11px;white-space:nowrap;user-select:none;position:relative; }
   thead th.sortable { cursor:pointer; }
   thead th.sortable:hover { background:#1e40af; }
   thead th.drag-over { background:#2563eb !important; }
-  .resize-handle { position:absolute;right:0;top:0;width:10px;height:100%;cursor:col-resize;z-index:2; }
-  .resize-handle:hover { background:rgba(255,255,255,.4); }
+  .resize-handle { position:absolute;right:0;top:0;width:5px;height:100%;cursor:col-resize;z-index:10;background:rgba(255,255,255,.15); }
+  .resize-handle:hover, .resize-handle:active { background:rgba(255,255,255,.6); }
   tbody tr { border-bottom:1px solid #f3f4f6;transition:background .1s; }
   tbody tr:hover { background:#f9fafb; }
   tbody tr.modificada { background:#fefce8; }
@@ -424,8 +424,8 @@ function renderCabecera() {
       return `<th class="sortable" data-campo="${k}" draggable="true"
         ondragstart="dragStart('${k}')" ondragover="dragOver(event,'${k}')"
         ondragleave="dragLeave('${k}')" ondrop="dragDrop('${k}')">
-        <span onclick="ord('${k}')" style="cursor:pointer;display:block;padding-right:8px">${l}</span>
-        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')"></div></th>`;
+        <span onclick="ord('${k}')" style="cursor:pointer;display:inline-block;padding-right:12px">${l}</span>
+        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')" title="Arrastra para cambiar ancho"></div></th>`;
     }).join('') + '</tr>';
 }
 
