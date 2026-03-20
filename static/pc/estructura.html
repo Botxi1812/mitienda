@@ -479,13 +479,23 @@ function finDrag() {
 // ── Acciones ──────────────────────────────────────────────────────────────────
 let _relacionTabla = null;
 
-function abrirModalRelacion(nombre) {
+async function abrirModalRelacion(nombre) {
   _relacionTabla = nombre;
   const t = _tablas.find(x => x.nombre === nombre);
   document.getElementById('relacion-titulo').textContent = `Relación — ${t.etiqueta}`;
 
-  // Campos disponibles (los no principales = JSON, que son los que pueden ser combos)
-  const campos = (_campos[nombre] || []).filter(c => !c.es_principal);
+  // Campos definidos (no principales)
+  let campos = (_campos[nombre] || []).filter(c => !c.es_principal);
+
+  // Si no hay campos definidos, sacarlos de un registro real de la tabla
+  if (!campos.length) {
+    const filas = await fetch(`/api/entidad/${nombre}`).then(r => r.json()).catch(() => []);
+    if (filas.length) {
+      const claves = Object.keys(filas[0]).filter(k => k !== 'id' && k !== 'nombre');
+      campos = claves.map(k => ({ nombre: k, etiqueta: k }));
+    }
+  }
+
   const selCampo = document.getElementById('relacion-campo');
   selCampo.innerHTML = '<option value="">— seleccionar campo —</option>' +
     campos.map(c => `<option value="${c.nombre}" ${t.campo_padre_fk===c.nombre?'selected':''}>${c.etiqueta} (${c.nombre})</option>`).join('');
