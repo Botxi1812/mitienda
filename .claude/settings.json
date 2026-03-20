@@ -15,7 +15,8 @@
       "Bash(mv PENDIENTE_2026-03-17.md \"../mitienda seg/\")"
     ],
     "additionalDirectories": [
-      "c:\\mitienda seg"
+      "c:\\mitienda seg",
+      "C:\\mitienda"
     ]
   }
 }

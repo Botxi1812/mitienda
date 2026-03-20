@@ -12,7 +12,7 @@
   }
   .icono { font-size: 72px; margin-bottom: 16px; }
   .titulo { font-size: 26px; font-weight: 800; color: #1e3a5f; margin-bottom: 8px; }
-  .albaran { font-size: 22px; font-weight: 700; color: #3b82f6; margin-bottom: 6px; }
+  .ticket { font-size: 22px; font-weight: 700; color: #3b82f6; margin-bottom: 6px; }
   .sub { font-size: 14px; color: #6b7280; margin-bottom: 48px; line-height: 1.6; }
   .btn-nueva {
     width: 100%; padding: 20px; border-radius: 16px;
@@ -33,17 +33,17 @@
 <main>
   <div class="icono">✅</div>
   <div class="titulo">¡Venta realizada!</div>
-  <div class="albaran" id="albaran"></div>
+  <div class="ticket" id="ticket"></div>
   <div class="sub" id="sub"></div>
   <button class="btn-nueva" onclick="nuevaVenta()">Nueva venta →</button>
   <button class="btn-cambiar" onclick="cambiarArticulo()">Cambiar artículo del día</button>
 </main>
 <script>
-const alb = JSON.parse(localStorage.getItem('ultimo_albaran') || 'null');
+const alb = JSON.parse(localStorage.getItem('ultimo_ticket') || 'null');
 const cli = JSON.parse(localStorage.getItem('cliente') || 'null');
 
 if (alb) {
-  document.getElementById('albaran').textContent = alb.numero;
+  document.getElementById('ticket').textContent = alb.numero;
   const tipo = alb.tipo === 'contado' ? 'Cobrado en efectivo' : 'A crédito';
   document.getElementById('sub').textContent =
     `${fmt(alb.total)} €  ·  ${tipo}\n${cli ? cli.nombre : ''}`;
@@ -53,7 +53,7 @@ function nuevaVenta() {
   // Mantiene operario y artículo, solo limpia cliente y cantidad
   localStorage.removeItem('cliente');
   localStorage.removeItem('cantidad');
-  localStorage.removeItem('ultimo_albaran');
+  localStorage.removeItem('ultimo_ticket');
   window.location.href = '/static/movil/cliente.html';
 }
 
@@ -61,7 +61,7 @@ function cambiarArticulo() {
   localStorage.removeItem('articulo');
   localStorage.removeItem('cliente');
   localStorage.removeItem('cantidad');
-  localStorage.removeItem('ultimo_albaran');
+  localStorage.removeItem('ultimo_ticket');
   window.location.href = '/static/movil/articulo.html';
 }
 

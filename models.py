@@ -107,8 +107,8 @@ class PrecioEspecial(Base):
 
 # ── Ventas ────────────────────────────────────────────────────────────────────
 
-class Albaran(Base):
-    __tablename__ = "albaranes"
+class Ticket(Base):
+    __tablename__ = "tickets"
     id          = Column(Integer, primary_key=True, index=True)
     numero      = Column(String, unique=True, index=True)
     fecha       = Column(DateTime, default=datetime.datetime.now, index=True)
@@ -116,22 +116,22 @@ class Albaran(Base):
     operario_id = Column(Integer, ForeignKey("operarios.id"), index=True)
     cliente     = relationship("Cliente")
     operario    = relationship("Operario")
-    lineas      = relationship("LineaVenta", back_populates="albaran")
+    lineas      = relationship("LineaVenta", back_populates="ticket")
 
 
 class LineaVenta(Base):
     __tablename__ = "lineas_venta"
     id                 = Column(Integer, primary_key=True, index=True)
-    albaran_id         = Column(Integer, ForeignKey("albaranes.id"), index=True)
+    ticket_id          = Column(Integer, ForeignKey("tickets.id"), index=True)
     articulo_id        = Column(Integer, ForeignKey("articulos.id"), index=True)
     cantidad           = Column(Float)
     precio_unitario    = Column(Float)
     importe            = Column(Float)
     es_precio_especial = Column(Integer, default=0)
-    departamento       = Column(String, default="")   # snapshot del momento
+    departamento       = Column(String, default="")
     tipo_pago          = Column(String, default="")
     modificado_por     = Column(String, default="")
     fecha_modificacion = Column(String, default="")
-    datos              = Column(Text, default="{}")   # campos extra JSON
-    albaran            = relationship("Albaran", back_populates="lineas")
+    datos              = Column(Text, default="{}")
+    ticket             = relationship("Ticket", back_populates="lineas")
     articulo           = relationship("Articulo")

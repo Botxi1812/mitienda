@@ -233,31 +233,31 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
     if not op:
         raise HTTPException(404, "Operario no encontrado")
     dept_nombre = op.departamento.nombre if op.departamento else ""
-    ultimo = db.query(models.Albaran).order_by(models.Albaran.id.desc()).first()
+    ultimo = db.query(models.Ticket).order_by(models.Ticket.id.desc()).first()
     num = (ultimo.id + 1) if ultimo else 1
-    numero = f"ALB-{num:05d}"
-    albaran = models.Albaran(numero=numero, fecha=datetime.now(), cliente_id=body.cliente_id, operario_id=body.operario_id)
-    db.add(albaran); db.flush()
+    numero = f"TCK-{num:05d}"
+    ticket = models.Ticket(numero=numero, fecha=datetime.now(), cliente_id=body.cliente_id, operario_id=body.operario_id)
+    db.add(ticket); db.flush()
     for l in body.lineas:
         db.add(models.LineaVenta(
-            albaran_id=albaran.id, articulo_id=l.articulo_id,
+            ticket_id=ticket.id, articulo_id=l.articulo_id,
             cantidad=l.cantidad, precio_unitario=l.precio_unitario,
             importe=round(l.cantidad * l.precio_unitario, 2),
             es_precio_especial=1 if l.es_precio_especial else 0,
             departamento=dept_nombre, tipo_pago=l.tipo_pago or "", datos=dump_datos({}),
         ))
     db.commit()
-    return {"ok": True, "numero": numero, "albaran_id": albaran.id}
+    return {"ok": True, "numero": numero, "ticket_id": ticket.id}
 
 def _linea_dict(l):
-    alb = l.albaran; cli = alb.cliente; op = alb.operario; art = l.articulo
+    alb = l.ticket; cli = alb.cliente; op = alb.operario; art = l.articulo
     op_d  = parse_datos(op.datos)  if op  else {}
     cli_d = parse_datos(cli.datos) if cli else {}
     art_d = parse_datos(art.datos) if art else {}
     extra = parse_datos(l.datos)
     d = {
-        "id": l.id, "albaran_id": l.albaran_id, "cliente_id": alb.cliente_id, "articulo_id": l.articulo_id,
-        "albaran": alb.numero, "fecha": alb.fecha.strftime("%d/%m/%Y %H:%M") if alb.fecha else "",
+        "id": l.id, "ticket_id": l.ticket_id, "cliente_id": alb.cliente_id, "articulo_id": l.articulo_id,
+        "ticket": alb.numero, "fecha": alb.fecha.strftime("%d/%m/%Y %H:%M") if alb.fecha else "",
         "operario": op.nombre if op else "", "operario_num": op_d.get("numero", ""),
         "departamento": l.departamento or (op.departamento.nombre if op and op.departamento else ""),
         "cliente": cli.nombre if cli else "", "cliente_cod": cli_d.get("codigo", ""),
@@ -276,23 +276,23 @@ def get_ventas(
     cliente_id: Optional[int] = None, operario_id: Optional[int] = None,
     articulo_id: Optional[int] = None, db: Session = Depends(get_db)
 ):
-    q = db.query(models.LineaVenta).join(models.Albaran)
+    q = db.query(models.LineaVenta).join(models.Ticket)
     if fecha_desde:
-        try: q = q.filter(models.Albaran.fecha >= datetime.strptime(fecha_desde, "%Y-%m-%d"))
+        try: q = q.filter(models.Ticket.fecha >= datetime.strptime(fecha_desde, "%Y-%m-%d"))
         except: pass
     if fecha_hasta:
         try:
             fh = datetime.strptime(fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            q = q.filter(models.Albaran.fecha <= fh)
+            q = q.filter(models.Ticket.fecha <= fh)
         except: pass
-    if cliente_id:  q = q.filter(models.Albaran.cliente_id  == cliente_id)
-    if operario_id: q = q.filter(models.Albaran.operario_id == operario_id)
+    if cliente_id:  q = q.filter(models.Ticket.cliente_id  == cliente_id)
+    if operario_id: q = q.filter(models.Ticket.operario_id == operario_id)
     if articulo_id: q = q.filter(models.LineaVenta.articulo_id == articulo_id)
-    return [_linea_dict(l) for l in q.order_by(models.Albaran.fecha.desc()).all()]
+    return [_linea_dict(l) for l in q.order_by(models.Ticket.fecha.desc()).all()]
 
 @app.get("/api/ventas/buscar_campo")
 def buscar_campo(campo: str, valor: str, db: Session = Depends(get_db)):
-    lineas = db.query(models.LineaVenta).join(models.Albaran).all()
+    lineas = db.query(models.LineaVenta).join(models.Ticket).all()
     return [d for l in lineas for d in [_linea_dict(l)] if str(d.get(campo, "")).lower() == valor.lower()]
 
 class LineaCambio(BaseModel):
@@ -322,11 +322,11 @@ def patch_lineas(cambios: List[LineaCambio], db: Session = Depends(get_db)):
 def delete_linea(id: int, modificado_por: Optional[str] = "", db: Session = Depends(get_db)):
     l = db.query(models.LineaVenta).filter_by(id=id).first()
     if not l: raise HTTPException(404)
-    albaran_id = l.albaran_id
+    ticket_id = l.ticket_id
     db.delete(l); db.commit()
-    if db.query(models.LineaVenta).filter_by(albaran_id=albaran_id).count() == 0:
-        alb = db.query(models.Albaran).filter_by(id=albaran_id).first()
-        if alb: db.delete(alb); db.commit()
+    if db.query(models.LineaVenta).filter_by(ticket_id=ticket_id).count() == 0:
+        t = db.query(models.Ticket).filter_by(id=ticket_id).first()
+        if t: db.delete(t); db.commit()
     return {"ok": True}
 
 # ── Configuración de campos ───────────────────────────────────────────────────
@@ -422,7 +422,7 @@ def borrar_perfil(id: int, db: Session = Depends(get_db)):
 @app.get("/api/consultas/config")
 def get_consultas_config():
     return [
-        {"campo": "albaran",         "etiqueta": "Albaran",      "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
+        {"campo": "ticket",         "etiqueta": "Ticket",      "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
         {"campo": "fecha",           "etiqueta": "Fecha",        "ancho_default": 130, "en_default": True,  "tipo_render": ""},
         {"campo": "operario",        "etiqueta": "Operario",     "ancho_default": 120, "en_default": True,  "tipo_render": ""},
         {"campo": "departamento",    "etiqueta": "Depto.",       "ancho_default": 100, "en_default": False, "tipo_render": ""},

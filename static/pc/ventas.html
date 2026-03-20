@@ -143,7 +143,7 @@ function renderPagina() {
       </div>
       <button class="btn-add" onclick="agregarLinea()">＋ Añadir ${t.etiqueta_singular.toLowerCase()}</button>
       <div class="totales">
-        <div class="total-label">Total albarán</div>
+        <div class="total-label">Total ticket</div>
         <div class="total-num" id="total-display">0,00 €</div>
       </div>
     </div>`;
@@ -333,13 +333,13 @@ async function confirmarVenta() {
   };
 
   try {
-    const res = await fetch('/api/albaranes', {
+    const res = await fetch('/api/ventas', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
     }).then(r => r.json());
 
-    if (!res?.numero) throw new Error(res?.detail || 'Sin número de albarán');
+    if (!res?.numero) throw new Error(res?.detail || 'Sin número de ticket');
     document.getElementById('modal-num').textContent   = res.numero;
     document.getElementById('modal-total').textContent = `Total: ${fmt(totalLocal)} €`;
     document.getElementById('modal-ok').classList.add('show');

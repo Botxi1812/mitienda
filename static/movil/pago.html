@@ -71,7 +71,7 @@ async function pagar(tipo) {
 }
 
 async function guardarVenta(tipo) {
-  const res = await fetch('/api/albaranes', {
+  const res = await fetch('/api/ventas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -80,7 +80,7 @@ async function guardarVenta(tipo) {
       lineas: [{ articulo_id: art.id, cantidad, precio_unitario: precio, es_precio_especial: especial }]
     })
   }).then(r => r.json());
-  localStorage.setItem('ultimo_albaran', JSON.stringify({ ...res, tipo }));
+  localStorage.setItem('ultimo_ticket', JSON.stringify({ ...res, tipo }));
   window.location.href = '/static/movil/exito.html';
 }
 

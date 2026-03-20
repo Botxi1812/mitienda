@@ -51,7 +51,7 @@ fetch(`/api/precio/${cli.id}/${art.id}`)
   });
 
 async function cobrar() {
-  const res = await fetch('/api/albaranes', {
+  const res = await fetch('/api/ventas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -60,7 +60,7 @@ async function cobrar() {
       lineas: [{ articulo_id: art.id, cantidad, precio_unitario: precio, es_precio_especial: especial }]
     })
   }).then(r => r.json());
-  localStorage.setItem('ultimo_albaran', JSON.stringify({ ...res, tipo: 'contado' }));
+  localStorage.setItem('ultimo_ticket', JSON.stringify({ ...res, tipo: 'contado' }));
   window.location.href = '/static/movil/exito.html';
 }
 

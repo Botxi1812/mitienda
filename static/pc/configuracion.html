@@ -247,8 +247,8 @@ function renderConfigGrid() {
   }
   document.getElementById('config-grid').innerHTML = tablasConCampos.map(t => {
     const campos = configData[t.nombre] || [];
-    const nCol   = campos.filter(c => c.tipo_campo==='columna' && !c.es_estandar).length;
-    const nJson  = campos.filter(c => c.tipo_campo==='json' && c.activo).length;
+    const nCol   = campos.filter(c => c.es_principal && !c.es_principal).length;
+    const nJson  = campos.filter(c => !c.es_principal && c.activo).length;
     const cCol   = `<span class="${nCol>=maxCol?'contador-max':'contador-ok'}">${nCol}/${maxCol} col.</span>`;
     const cJson  = `<span class="${nJson>=maxJson?'contador-max':'contador-ok'}">${nJson}/${maxJson} json</span>`;
     return `
@@ -273,14 +273,14 @@ function renderConfigGrid() {
 }
 
 function renderCampoRow(c) {
-  const icono = c.es_estandar ? '&#128274;' : (c.activo ? '&#9670;' : '&#9671;');
-  const clase  = c.es_estandar ? 'estandar' : (c.activo ? '' : 'archivado');
-  const badge  = c.tipo_campo==='columna'
+  const icono = c.es_principal ? '&#128274;' : (c.activo ? '&#9670;' : '&#9671;');
+  const clase  = c.es_principal ? 'estandar' : (c.activo ? '' : 'archivado');
+  const badge  = c.es_principal
     ? '<span class="badge badge-col">Columna BD</span>'
     : '<span class="badge badge-json">JSON</span>';
-  const bVentas = c.en_ventas ? '<span class="badge badge-ventas">En venta</span>' : '';
+  const bVentas = c.en_venta ? '<span class="badge badge-ventas">En venta</span>' : '';
   let btnAcc = '';
-  if (c.es_estandar) {
+  if (c.es_principal) {
     btnAcc = '<span style="font-size:11px;color:#9ca3af;padding:0 4px">estándar</span>';
   } else if (c.activo) {
     btnAcc = `<button class="btn-accion" onclick="archivar(${c.id})" title="Archivar campo">&#128230;</button>`;
@@ -310,15 +310,15 @@ function renderArbolVentas() {
 
     // Resumen inline: campo etiquetas activas
     const activosLabels = campos
-      .filter(c => c.es_bloqueado_venta || c.en_ventas)
+      .filter(c => c.es_principal || c.en_venta)
       .map(c => c.etiqueta);
     const resumen = activosLabels.length
       ? `<span style="font-size:11px;color:#6b7280;margin-left:10px;font-weight:normal;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${activosLabels.join(' · ')}</span>`
       : `<span style="flex:1"></span>`;
 
-    const personalizados = campos.filter(c => !c.es_estandar);
+    const personalizados = campos.filter(c => !c.es_principal);
     const extraCounter = personalizados.length
-      ? `<span style="font-size:11px;color:#9ca3af;flex-shrink:0">${personalizados.filter(c=>c.en_ventas).length}/${personalizados.length} extra</span>`
+      ? `<span style="font-size:11px;color:#9ca3af;flex-shrink:0">${personalizados.filter(c=>c.en_venta).length}/${personalizados.length} extra</span>`
       : '';
 
     return `
@@ -330,26 +330,26 @@ function renderArbolVentas() {
       </div>
       <div class="arbol-campos" id="av-${t.nombre}">
         ${campos.map(c => {
-          if (c.es_bloqueado_venta) {
+          if (c.es_principal) {
             return `
             <div class="campo-check" style="cursor:default">
               <input type="checkbox" checked disabled style="cursor:not-allowed;opacity:.5">
               <label style="color:#6b7280;cursor:default">${c.etiqueta}</label>
               <span class="badge" style="background:#f0fdf4;color:#16a34a;font-size:10px;border:1px solid #bbf7d0">Básico</span>
             </div>`;
-          } else if (c.es_estandar) {
+          } else if (c.es_principal) {
             return `
             <div class="campo-check">
-              <input type="checkbox" id="cv-${c.id}" ${c.en_ventas?'checked':''} onchange="toggleVentas(${c.id})">
+              <input type="checkbox" id="cv-${c.id}" ${c.en_venta?'checked':''} onchange="toggleVentas(${c.id})">
               <label for="cv-${c.id}">${c.etiqueta}</label>
               <span class="badge" style="background:#fef3c7;color:#b45309;font-size:10px">Estándar</span>
             </div>`;
           } else {
             return `
             <div class="campo-check">
-              <input type="checkbox" id="cv-${c.id}" ${c.en_ventas?'checked':''} onchange="toggleVentas(${c.id})">
+              <input type="checkbox" id="cv-${c.id}" ${c.en_venta?'checked':''} onchange="toggleVentas(${c.id})">
               <label for="cv-${c.id}">${c.etiqueta}</label>
-              ${c.tipo_campo==='columna'
+              ${c.es_principal
                 ? '<span class="badge badge-col" style="font-size:10px">Columna</span>'
                 : '<span class="badge badge-json" style="font-size:10px">JSON</span>'}
             </div>`;

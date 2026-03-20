@@ -14,7 +14,7 @@ let _datos = [];          // lista de registros cargados
 let _editId = null;       // id del registro que se está editando (null = nuevo)
 let _sortCol = null;      // columna de ordenación actual
 let _sortDir = 1;         // dirección: 1 asc, -1 desc
-let _camposExtra = [];    // campos personalizados (es_estandar=0)
+let _camposExtra = [];    // campos personalizados (es_principal=0)
 let _colsDef = [];        // todas las columnas disponibles [{k, l}]
 let _colsVis = [];        // columnas actualmente visibles
 let _perfilActivo = null;
@@ -33,11 +33,11 @@ async function initCatalog() {
 
   document.title = `Mi Tienda — ${_cfg.etiqueta}`;
 
-  // Columnas: estándar + personalizadas
-  _camposExtra = _cfg.campos.filter(c => !c.es_estandar);
-  const colsEstandar = _cfg.campos.filter(c => c.es_estandar).map(c => ({k: c.nombre, l: c.etiqueta}));
-  const colsExtra    = _camposExtra.map(c => ({k: c.nombre, l: c.etiqueta}));
-  _colsDef = [...colsEstandar, ...colsExtra];
+  // Columnas: todas (principal + extra)
+  _camposExtra = _cfg.campos.filter(c => !c.es_principal);
+  const colsPrinc = _cfg.campos.filter(c => c.es_principal).map(c => ({k: c.nombre, l: c.etiqueta}));
+  const colsExtra = _camposExtra.map(c => ({k: c.nombre, l: c.etiqueta}));
+  _colsDef = [...colsPrinc, ...colsExtra];
   _sortCol = _cfg.campo_principal || _colsDef[0]?.k || 'id';
 
   // Render estructura de la página
@@ -117,7 +117,7 @@ function catAbrir(id) {
     id ? `Editar ${_cfg.etiqueta_singular}` : `Nuevo ${_cfg.etiqueta_singular}`;
 
   // Rellenar campos estándar dinámicamente
-  _cfg.campos.filter(c => c.es_estandar).forEach(c => {
+  _cfg.campos.filter(c => c.es_principal).forEach(c => {
     const el = document.getElementById(`cat-f-${c.nombre}`);
     if (el) el.value = row ? (row[c.nombre] ?? '') : '';
   });
@@ -146,7 +146,7 @@ async function catGuardar() {
   const body = {};
 
   // Recoger campos estándar
-  _cfg.campos.filter(c => c.es_estandar).forEach(c => {
+  _cfg.campos.filter(c => c.es_principal).forEach(c => {
     const el = document.getElementById(`cat-f-${c.nombre}`);
     if (el) body[c.nombre] = el.value.trim();
   });
@@ -165,7 +165,7 @@ async function catGuardar() {
   }
 
   // Validar requeridos
-  const requeridos = _cfg.campos.filter(c => c.es_requerido || c.es_bloqueado_venta);
+  const requeridos = _cfg.campos.filter(c => c.es_requerido || c.es_requerido);
   for (const c of requeridos) {
     if (!body[c.nombre]) {
       _showError(`"${c.etiqueta}" es obligatorio`); return;
@@ -279,7 +279,7 @@ async function catBorrarPerfil() {
 
 // ── Construcción dinámica del modal ───────────────────────────────────────────
 function _buildModalFields() {
-  const campos = _cfg.campos.filter(c => c.es_estandar);
+  const campos = _cfg.campos.filter(c => c.es_principal);
   let html = '';
 
   // Si tiene padre (FK), renderizar selector primero (antes que los campos propios)
@@ -304,7 +304,7 @@ function _buildModalFields() {
     const campoFkTexto = _cfg.campo_padre_fk?.replace('_id', '');
     if (campoFkTexto && c.nombre === campoFkTexto) return;
 
-    const required = c.es_bloqueado_venta ? ' *' : '';
+    const required = c.es_requerido ? ' *' : '';
     const disabled = '';
     let input = '';
 
@@ -337,7 +337,7 @@ function _buildModalFields() {
   });
 
   if (principal) {
-    html += `<div class="campo"><label>${principal.etiqueta}${principal.es_bloqueado_venta ? ' *' : ''}</label>
+    html += `<div class="campo"><label>${principal.etiqueta}${principal.es_requerido ? ' *' : ''}</label>
       <input id="cat-f-${principal.nombre}" type="text" placeholder="${principal.etiqueta}">
     </div>`;
   }
@@ -348,7 +348,7 @@ function _buildModalFields() {
       html += `<div class="campo-row">`;
     }
     [resto[i], resto[i+1]].filter(Boolean).forEach(c => {
-      const req = c.es_bloqueado_venta ? ' *' : '';
+      const req = c.es_requerido ? ' *' : '';
       let input = '';
       if (c.tipo === 'numero') {
         input = `<input id="cat-f-${c.nombre}" type="number" step="any" placeholder="0">`;

@@ -123,7 +123,7 @@
   <!-- Resumen -->
   <div class="resumen" id="resumen" style="display:none">
     <div class="res-card"><div class="res-label">Líneas</div><div class="res-val" id="r-lineas"></div></div>
-    <div class="res-card"><div class="res-label">Albaranes</div><div class="res-val" id="r-albaranes"></div></div>
+    <div class="res-card"><div class="res-label">Ticketes</div><div class="res-val" id="r-ventas"></div></div>
     <div class="res-card"><div class="res-label">Importe total</div><div class="res-val" id="r-total"></div></div>
     <div class="res-card"><div class="res-label">Precios especiales</div><div class="res-val" id="r-esp"></div></div>
     <div class="res-card"><div class="res-label">Modificadas</div><div class="res-val" id="r-mod"></div></div>
@@ -186,7 +186,7 @@ async function init() {
   COLS_CFG = await fetch('/api/consultas/config').then(r => r.json());
   COLS_LABELS   = {};
   ANCHO_DEFAULT = {};
-  clavesFijas   = new Set(['id','cliente_id','albaran_id','articulo_id']);
+  clavesFijas   = new Set(['id','cliente_id','ticket_id','articulo_id']);
   COLS_CFG.forEach(c => {
     COLS_LABELS[c.campo]   = c.etiqueta;
     ANCHO_DEFAULT[c.campo] = c.ancho_default;
@@ -347,7 +347,7 @@ function actualizarSelectBusqAvanzada() {
   const extras = window._camposExtra || [];
   // Campos indexables: los de consultas_config con tipo_render != 'bold' y no fecha
   const opciones = COLS_CFG
-    .filter(c => !['albaran','fecha'].includes(c.campo))
+    .filter(c => !['ticket','fecha'].includes(c.campo))
     .map(c => ({k: c.campo, l: c.etiqueta}));
   extras.forEach(k => opciones.push({k, l: k.replace(/_/g,' ')}));
   sel.innerHTML = opciones.map(o => `<option value="${o.k}">${o.l}</option>`).join('');
@@ -417,7 +417,7 @@ function ord(col) {
 function renderCabecera() {
   if (modoEdicion) {
     const colsEd = [
-      {k:'albaran',l:'Albarán',w:90},{k:'fecha',l:'Fecha',w:130},
+      {k:'ticket',l:'Ticket',w:90},{k:'fecha',l:'Fecha',w:130},
       {k:'operario',l:'Operario',w:120},{k:'departamento',l:'Depto.',w:100},
       {k:'cliente',l:'Cliente',w:140},
       {k:'articulo',l:'Artículo ✏️',w:180},{k:'cantidad',l:'Cant. ✏️',w:70},
@@ -493,7 +493,7 @@ function renderTabla(datosRender) {
         `<option value="${a.id}" ${a.id===l.articulo_id?'selected':''}>${a.codigo} — ${a.descripcion}</option>`
       ).join('');
       return `<tr data-id="${l.id}" class="${l.modificado_por?'modificada':''}">
-        <td><strong>${l.albaran}</strong></td><td>${l.fecha}</td>
+        <td><strong>${l.ticket}</strong></td><td>${l.fecha}</td>
         <td>${l.operario}</td><td>${l.departamento||'—'}</td><td>${l.cliente}</td>
         <td><select class="ed-select" data-field="articulo_id" onchange="articuloCambiado(${l.id},this)">${optsArt}</select></td>
         <td><input class="ed-input" type="number" min="0.01" step="0.01" data-field="cantidad" value="${l.cantidad}" style="width:70px" oninput="recalcImporte(${l.id})"></td>
@@ -519,7 +519,7 @@ function renderResumen() {
   if (!datos.length) { document.getElementById('resumen').style.display='none'; return; }
   document.getElementById('resumen').style.display='grid';
   document.getElementById('r-lineas').textContent    = datos.length;
-  document.getElementById('r-albaranes').textContent = new Set(datos.map(l=>l.albaran)).size;
+  document.getElementById('r-ventas').textContent = new Set(datos.map(l=>l.ticket)).size;
   document.getElementById('r-total').textContent     = fmt(datos.reduce((s,l)=>s+l.importe,0))+' €';
   document.getElementById('r-esp').textContent       = datos.filter(l=>l.especial).length;
   document.getElementById('r-mod').textContent       = datos.filter(l=>l.modificado_por).length;
@@ -574,7 +574,7 @@ function recalcImporte(id) {
 }
 
 async function eliminarLinea(id) {
-  if (!confirm('¿Eliminar esta línea? Si es la última del albarán, el albarán también desaparecerá.')) return;
+  if (!confirm('¿Eliminar esta línea? Si es la última del ticket, el ticket también desaparecerá.')) return;
   const res = await fetch(`/api/lineas/${id}?modificado_por=${encodeURIComponent(operario?.nombre||'')}`,
     {method:'DELETE'}).then(r=>r.json());
   if (res.ok) {

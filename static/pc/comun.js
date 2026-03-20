@@ -44,7 +44,7 @@ function renderCamposExtra(campos, valores) {
   if (!campos || !campos.length) return '';
   return campos.map(c => {
     const val = (valores && valores[c.nombre]) || '';
-    const label = `<label>${c.etiqueta} <span style="font-size:10px;color:#9ca3af">${c.tipo_campo==='fijo'?'fijo':'volátil'}</span></label>`;
+    const label = `<label>${c.etiqueta} <span style="font-size:10px;color:#9ca3af">${c.es_principal?'principal':'json'}</span></label>`;
     let input = '';
     if (c.tipo === 'lista' && c.opciones) {
       const opts = c.opciones.split(',').map(o => o.trim());
