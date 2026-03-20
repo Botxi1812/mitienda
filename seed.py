@@ -26,7 +26,7 @@ operarios_seed = [
     ("OP-005", "Miguel Torres",    "Distribucion"),
 ]
 for num, nombre, dept in operarios_seed:
-    db.add(models.Operario(nombre=nombre, departamento_id=depts[dept], datos=json.dumps({"numero": num})))
+    db.add(models.Operario(nombre=nombre, datos=json.dumps({"numero": num, "departamento": dept})))
 db.commit(); print("Operarios OK")
 
 # Clientes
@@ -61,14 +61,6 @@ for cod, desc, cat, precio in articulos_seed:
     db.add(a); db.flush(); arts[cod] = a
 db.commit(); print("Articulos OK")
 
-# Precios especiales
-clientes = db.query(models.Cliente).all()
-for c in random.sample(clientes, 30):
-    db.add(models.PrecioEspecial(cliente_id=c.id, articulo_id=arts["ART-005"].id, precio=round(random.uniform(1800, 2400), 2)))
-for c in random.sample(clientes, 20):
-    db.add(models.PrecioEspecial(cliente_id=c.id, articulo_id=arts["ART-008"].id, precio=round(random.uniform(3500, 4600), 2)))
-db.commit(); print("Precios especiales OK")
-
 # Tabla definiciones
 tablas = [
     models.TablaDefinicion(nombre="departamentos", etiqueta="Departamentos", etiqueta_singular="Departamento",
@@ -82,7 +74,6 @@ tablas = [
         en_nav=1, orden_nav=2, en_venta_tipo="lineas", en_filtros=1, es_sistema=1, activa=1),
     models.TablaDefinicion(nombre="operarios", etiqueta="Trabajadores", etiqueta_singular="Trabajador",
         icono="", ruta="trabajadores", campo_principal="nombre", campo_secundario="numero",
-        padre_tabla="departamentos", campo_padre_fk="departamento_id",
         en_nav=1, orden_nav=3, en_venta_tipo="ninguno", en_filtros=1, es_sistema=1, activa=1),
 ]
 for t in tablas:

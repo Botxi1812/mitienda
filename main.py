@@ -59,10 +59,6 @@ def row_to_dict(row):
     d = parse_datos(getattr(row, "datos", "{}"))
     result = {"id": row.id, "nombre": row.nombre}
     result.update(d)
-    if hasattr(row, "departamento_id"):
-        result["departamento_id"] = row.departamento_id
-        if row.departamento:
-            result["departamento"] = row.departamento.nombre
     return result
 
 # ── Login ─────────────────────────────────────────────────────────────────────
@@ -72,11 +68,10 @@ def get_operarios(db: Session = Depends(get_db)):
     result = []
     for op in ops:
         d = parse_datos(op.datos)
-        dept = op.departamento.nombre if op.departamento else ""
         result.append({
             "id": op.id, "nombre": op.nombre,
             "numero": d.get("numero", ""),
-            "departamento": dept, "departamento_id": op.departamento_id,
+            "departamento": d.get("departamento", ""),
         })
     return result
 
@@ -150,10 +145,8 @@ def crear_entidad(tabla: str, body: Dict[str, Any], db: Session = Depends(get_db
     nombre = body.get("nombre", "").strip()
     if not nombre:
         raise HTTPException(400, "El campo nombre es obligatorio")
-    datos_json = {k: v for k, v in body.items() if k not in ("nombre", "departamento_id", "id")}
+    datos_json = {k: v for k, v in body.items() if k not in ("nombre", "id")}
     kwargs = {"nombre": nombre, "datos": dump_datos(datos_json)}
-    if hasattr(Modelo, "departamento_id") and body.get("departamento_id"):
-        kwargs["departamento_id"] = body["departamento_id"]
     fila = Modelo(**kwargs)
     db.add(fila)
     try:
@@ -174,10 +167,8 @@ def actualizar_entidad(tabla: str, id: int, body: Dict[str, Any], db: Session = 
         fila.nombre = body["nombre"].strip()
     datos_json = parse_datos(fila.datos)
     for k, v in body.items():
-        if k not in ("id", "nombre", "departamento_id", "departamento"):
+        if k not in ("id", "nombre"):
             datos_json[k] = v
-    if "departamento_id" in body and hasattr(fila, "departamento_id"):
-        fila.departamento_id = body["departamento_id"]
     fila.datos = dump_datos(datos_json)
     try:
         db.commit(); db.refresh(fila)
@@ -200,25 +191,12 @@ def eliminar_entidad(tabla: str, id: int, db: Session = Depends(get_db)):
         db.rollback(); raise HTTPException(400, str(e))
     return {"ok": True}
 
-# ── Precios especiales ────────────────────────────────────────────────────────
-@app.get("/api/precio/{cliente_id}/{articulo_id}")
-def get_precio(cliente_id: int, articulo_id: int, db: Session = Depends(get_db)):
-    pe = db.query(models.PrecioEspecial).filter_by(cliente_id=cliente_id, articulo_id=articulo_id).first()
-    if pe:
-        return {"precio": pe.precio, "especial": True}
-    art = db.query(models.Articulo).filter_by(id=articulo_id).first()
-    if not art:
-        raise HTTPException(404)
-    d = parse_datos(art.datos)
-    return {"precio": d.get("precio", 0), "especial": False}
-
 # ── Ventas ────────────────────────────────────────────────────────────────────
 class LineaIn(BaseModel):
-    articulo_id:        int
-    cantidad:           float
-    precio_unitario:    float
-    es_precio_especial: Optional[bool] = False
-    tipo_pago:          Optional[str] = ""
+    articulo_id:     int
+    cantidad:        float
+    precio_unitario: float
+    tipo_pago:       Optional[str] = ""
 
 class VentaIn(BaseModel):
     cliente_id:  Optional[int] = None
@@ -232,72 +210,97 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
     op = db.query(models.Operario).filter_by(id=body.operario_id).first()
     if not op:
         raise HTTPException(404, "Operario no encontrado")
-    dept_nombre = op.departamento.nombre if op.departamento else ""
-    ultimo = db.query(models.Ticket).order_by(models.Ticket.id.desc()).first()
-    num = (ultimo.id + 1) if ultimo else 1
+    op_datos = parse_datos(op.datos)
+    departamento = op_datos.get("departamento", "")
+    cli = db.query(models.Cliente).filter_by(id=body.cliente_id).first() if body.cliente_id else None
+    cli_datos = parse_datos(cli.datos) if cli else {}
+    ultimo = db.query(models.LineaVenta).order_by(models.LineaVenta.id.desc()).first()
+    # Extraer numero de venta del ultimo registro
+    if ultimo and ultimo.numero_venta and ultimo.numero_venta.startswith("TCK-"):
+        try: num = int(ultimo.numero_venta[4:]) + 1
+        except: num = 1
+    else:
+        num = 1
     numero = f"TCK-{num:05d}"
-    ticket = models.Ticket(numero=numero, fecha=datetime.now(), cliente_id=body.cliente_id, operario_id=body.operario_id)
-    db.add(ticket); db.flush()
+    ahora = datetime.now()
     for l in body.lineas:
+        art = db.query(models.Articulo).filter_by(id=l.articulo_id).first()
+        if not art:
+            raise HTTPException(404, f"Articulo {l.articulo_id} no encontrado")
+        art_datos = parse_datos(art.datos)
         db.add(models.LineaVenta(
-            ticket_id=ticket.id, articulo_id=l.articulo_id,
-            cantidad=l.cantidad, precio_unitario=l.precio_unitario,
+            numero_venta=numero,
+            fecha=ahora,
+            operario=op.nombre,
+            departamento=departamento,
+            cliente=cli.nombre if cli else "",
+            articulo=art.nombre,
+            codigo=art_datos.get("codigo", ""),
+            categoria=art_datos.get("categoria", ""),
+            precio_unitario=l.precio_unitario,
+            cantidad=l.cantidad,
             importe=round(l.cantidad * l.precio_unitario, 2),
-            es_precio_especial=1 if l.es_precio_especial else 0,
-            departamento=dept_nombre, tipo_pago=l.tipo_pago or "", datos=dump_datos({}),
+            tipo_pago=l.tipo_pago or "",
+            datos=dump_datos({"cliente_cod": cli_datos.get("codigo", ""), "ciudad": cli_datos.get("ciudad", ""), "operario_num": op_datos.get("numero", "")}),
         ))
     db.commit()
-    return {"ok": True, "numero": numero, "ticket_id": ticket.id}
+    return {"ok": True, "numero": numero}
 
 def _linea_dict(l):
-    alb = l.ticket; cli = alb.cliente; op = alb.operario; art = l.articulo
-    op_d  = parse_datos(op.datos)  if op  else {}
-    cli_d = parse_datos(cli.datos) if cli else {}
-    art_d = parse_datos(art.datos) if art else {}
     extra = parse_datos(l.datos)
     d = {
-        "id": l.id, "ticket_id": l.ticket_id, "cliente_id": alb.cliente_id, "articulo_id": l.articulo_id,
-        "ticket": alb.numero, "fecha": alb.fecha.strftime("%d/%m/%Y %H:%M") if alb.fecha else "",
-        "operario": op.nombre if op else "", "operario_num": op_d.get("numero", ""),
-        "departamento": l.departamento or (op.departamento.nombre if op and op.departamento else ""),
-        "cliente": cli.nombre if cli else "", "cliente_cod": cli_d.get("codigo", ""),
-        "ciudad": cli_d.get("ciudad", ""), "articulo": art.nombre if art else "",
-        "articulo_cod": art_d.get("codigo", ""), "cantidad": l.cantidad,
-        "precio_unitario": l.precio_unitario, "importe": l.importe,
-        "especial": l.es_precio_especial == 1, "tipo_pago": l.tipo_pago or "",
-        "modificado_por": l.modificado_por or "", "fecha_modificacion": l.fecha_modificacion or "",
+        "id": l.id,
+        "numero_venta": l.numero_venta,
+        "fecha": l.fecha.strftime("%d/%m/%Y %H:%M") if l.fecha else "",
+        "operario": l.operario,
+        "operario_num": extra.get("operario_num", ""),
+        "departamento": l.departamento,
+        "cliente": l.cliente,
+        "cliente_cod": extra.get("cliente_cod", ""),
+        "ciudad": extra.get("ciudad", ""),
+        "articulo": l.articulo,
+        "articulo_cod": l.codigo,
+        "categoria": l.categoria,
+        "cantidad": l.cantidad,
+        "precio_unitario": l.precio_unitario,
+        "importe": l.importe,
+        "tipo_pago": l.tipo_pago,
+        "modificado_por": l.modificado_por,
+        "fecha_modificacion": l.fecha_modificacion,
     }
-    d.update(extra)
+    # campos extra JSON adicionales
+    for k, v in extra.items():
+        if k not in d:
+            d[k] = v
     return d
 
 @app.get("/api/ventas")
 def get_ventas(
     fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None,
-    cliente_id: Optional[int] = None, operario_id: Optional[int] = None,
-    articulo_id: Optional[int] = None, db: Session = Depends(get_db)
+    cliente:     Optional[str] = None, operario:    Optional[str] = None,
+    articulo:    Optional[str] = None, db: Session = Depends(get_db)
 ):
-    q = db.query(models.LineaVenta).join(models.Ticket)
+    q = db.query(models.LineaVenta)
     if fecha_desde:
-        try: q = q.filter(models.Ticket.fecha >= datetime.strptime(fecha_desde, "%Y-%m-%d"))
+        try: q = q.filter(models.LineaVenta.fecha >= datetime.strptime(fecha_desde, "%Y-%m-%d"))
         except: pass
     if fecha_hasta:
         try:
             fh = datetime.strptime(fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            q = q.filter(models.Ticket.fecha <= fh)
+            q = q.filter(models.LineaVenta.fecha <= fh)
         except: pass
-    if cliente_id:  q = q.filter(models.Ticket.cliente_id  == cliente_id)
-    if operario_id: q = q.filter(models.Ticket.operario_id == operario_id)
-    if articulo_id: q = q.filter(models.LineaVenta.articulo_id == articulo_id)
-    return [_linea_dict(l) for l in q.order_by(models.Ticket.fecha.desc()).all()]
+    if cliente:  q = q.filter(models.LineaVenta.cliente.ilike(f"%{cliente}%"))
+    if operario: q = q.filter(models.LineaVenta.operario.ilike(f"%{operario}%"))
+    if articulo: q = q.filter(models.LineaVenta.articulo.ilike(f"%{articulo}%"))
+    return [_linea_dict(l) for l in q.order_by(models.LineaVenta.fecha.desc()).all()]
 
 @app.get("/api/ventas/buscar_campo")
 def buscar_campo(campo: str, valor: str, db: Session = Depends(get_db)):
-    lineas = db.query(models.LineaVenta).join(models.Ticket).all()
+    lineas = db.query(models.LineaVenta).all()
     return [d for l in lineas for d in [_linea_dict(l)] if str(d.get(campo, "")).lower() == valor.lower()]
 
 class LineaCambio(BaseModel):
     id:              int
-    articulo_id:     Optional[int]   = None
     cantidad:        Optional[float] = None
     precio_unitario: Optional[float] = None
     tipo_pago:       Optional[str]   = None
@@ -308,7 +311,6 @@ def patch_lineas(cambios: List[LineaCambio], db: Session = Depends(get_db)):
     for c in cambios:
         l = db.query(models.LineaVenta).filter_by(id=c.id).first()
         if not l: continue
-        if c.articulo_id is not None:     l.articulo_id      = c.articulo_id
         if c.cantidad is not None:        l.cantidad         = c.cantidad
         if c.precio_unitario is not None: l.precio_unitario  = c.precio_unitario
         if c.tipo_pago is not None:       l.tipo_pago        = c.tipo_pago
@@ -322,11 +324,7 @@ def patch_lineas(cambios: List[LineaCambio], db: Session = Depends(get_db)):
 def delete_linea(id: int, modificado_por: Optional[str] = "", db: Session = Depends(get_db)):
     l = db.query(models.LineaVenta).filter_by(id=id).first()
     if not l: raise HTTPException(404)
-    ticket_id = l.ticket_id
     db.delete(l); db.commit()
-    if db.query(models.LineaVenta).filter_by(ticket_id=ticket_id).count() == 0:
-        t = db.query(models.Ticket).filter_by(id=ticket_id).first()
-        if t: db.delete(t); db.commit()
     return {"ok": True}
 
 # ── Configuración de campos ───────────────────────────────────────────────────
