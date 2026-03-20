@@ -184,14 +184,24 @@
   <div class="modal-nueva">
     <h3 id="relacion-titulo">Relación de tabla</h3>
     <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
-      El nexo siempre es el campo <strong>nombre</strong>. Al elegir una tabla padre,
-      el formulario de creación mostrará un combo con sus registros.
+      Elige qué campo de esta tabla apunta a otra tabla. Ese campo se mostrará
+      como un combo al crear o editar registros.
     </p>
     <div class="campo">
-      <label>Esta tabla depende de</label>
+      <label>Campo de esta tabla</label>
+      <select id="relacion-campo">
+        <option value="">— seleccionar campo —</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Apunta a la tabla</label>
       <select id="relacion-padre">
         <option value="">— sin relación —</option>
       </select>
+    </div>
+    <div id="relacion-actual" style="font-size:12px;color:#6b7280;margin-top:4px;display:none">
+      Relación actual: <strong id="relacion-actual-txt"></strong>
+      <button onclick="quitarRelacion()" style="margin-left:8px;font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer;text-decoration:underline">Quitar</button>
     </div>
     <div class="modal-nueva-footer">
       <button class="btn-cancelar-nueva" onclick="cerrarModalRelacion()">Cancelar</button>
@@ -474,11 +484,28 @@ function abrirModalRelacion(nombre) {
   const t = _tablas.find(x => x.nombre === nombre);
   document.getElementById('relacion-titulo').textContent = `Relación — ${t.etiqueta}`;
 
-  const sel = document.getElementById('relacion-padre');
-  sel.innerHTML = '<option value="">— sin relación —</option>' +
+  // Campos disponibles (los no principales = JSON, que son los que pueden ser combos)
+  const campos = (_campos[nombre] || []).filter(c => !c.es_principal);
+  const selCampo = document.getElementById('relacion-campo');
+  selCampo.innerHTML = '<option value="">— seleccionar campo —</option>' +
+    campos.map(c => `<option value="${c.nombre}" ${t.campo_padre_fk===c.nombre?'selected':''}>${c.etiqueta} (${c.nombre})</option>`).join('');
+
+  // Tablas disponibles como padre
+  const selPadre = document.getElementById('relacion-padre');
+  selPadre.innerHTML = '<option value="">— sin relación —</option>' +
     _tablas.filter(x => x.nombre !== nombre)
-           .map(x => `<option value="${x.nombre}" ${t.padre_tabla===x.nombre?'selected':''}>${x.etiqueta}</option>`)
-           .join('');
+           .map(x => `<option value="${x.nombre}" ${t.padre_tabla===x.nombre?'selected':''}>${x.etiqueta}</option>`).join('');
+
+  // Mostrar relación actual si existe
+  const actual = document.getElementById('relacion-actual');
+  const actualTxt = document.getElementById('relacion-actual-txt');
+  if (t.padre_tabla && t.campo_padre_fk) {
+    const tPadre = _tablas.find(x => x.nombre === t.padre_tabla);
+    actualTxt.textContent = `campo "${t.campo_padre_fk}" → ${tPadre?.etiqueta || t.padre_tabla}`;
+    actual.style.display = 'block';
+  } else {
+    actual.style.display = 'none';
+  }
 
   document.getElementById('modal-relacion').classList.add('show');
 }
@@ -488,12 +515,25 @@ function cerrarModalRelacion() {
   _relacionTabla = null;
 }
 
+async function quitarRelacion() {
+  if (!confirm('¿Quitar la relación?')) return;
+  await fetch(`/api/tablas/${_relacionTabla}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ padre_tabla: '', campo_padre_fk: '' })
+  });
+  cerrarModalRelacion();
+  await init();
+}
+
 async function guardarRelacion() {
+  const campo = document.getElementById('relacion-campo').value;
   const padre = document.getElementById('relacion-padre').value;
+  if (padre && !campo) { alert('Elige el campo de esta tabla que apunta al padre'); return; }
   const res = await fetch(`/api/tablas/${_relacionTabla}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ padre_tabla: padre })
+    body: JSON.stringify({ padre_tabla: padre, campo_padre_fk: campo })
   });
   if (!res.ok) { alert('Error al guardar relación'); return; }
   cerrarModalRelacion();

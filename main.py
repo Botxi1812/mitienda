@@ -148,14 +148,16 @@ def crear_tabla(body: TablaIn, db: Session = Depends(get_db)):
     return _tabla_dict(t)
 
 class TablaRelacionIn(BaseModel):
-    padre_tabla: str = ""
+    padre_tabla:   str = ""
+    campo_padre_fk: str = ""
 
 @app.patch("/api/tablas/{nombre}")
 def patch_tabla(nombre: str, body: TablaRelacionIn, db: Session = Depends(get_db)):
     t = db.query(models.TablaDefinicion).filter_by(nombre=nombre).first()
     if not t:
         raise HTTPException(404, f"Tabla '{nombre}' no encontrada")
-    t.padre_tabla = body.padre_tabla
+    t.padre_tabla    = body.padre_tabla
+    t.campo_padre_fk = body.campo_padre_fk
     db.commit(); db.refresh(t)
     return _tabla_dict(t)
 

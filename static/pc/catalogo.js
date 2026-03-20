@@ -153,10 +153,10 @@ function catAbrir(id) {
     if (el) el.value = row ? (row[c.nombre] ?? '') : '';
   });
 
-  // Selector de padre (nexo = nombre, clave = nombre de tabla padre)
-  if (_cfg.padre_tabla) {
+  // Selector de padre: rellenar con el valor actual del campo_padre_fk
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
     const sel = document.getElementById('cat-f-padre');
-    if (sel && row) sel.value = row[_cfg.padre_tabla] ?? '';
+    if (sel && row) sel.value = row[_cfg.campo_padre_fk] ?? '';
   }
 
   // Campos extra
@@ -182,10 +182,10 @@ async function catGuardar() {
     if (el) body[c.nombre] = el.value.trim();
   });
 
-  // Recoger valor del padre (nexo = nombre, se guarda con clave = nombre de tabla padre)
-  if (_cfg.padre_tabla) {
+  // Recoger valor del combo padre → se guarda en el campo campo_padre_fk
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk) {
     const sel = document.getElementById('cat-f-padre');
-    if (sel) body[_cfg.padre_tabla] = sel.value || '';
+    if (sel) body[_cfg.campo_padre_fk] = sel.value || '';
   }
 
   // Validar requeridos
@@ -314,11 +314,13 @@ async function _buildModalFields() {
   const campos = _cfg.campos.filter(c => c.es_principal);
   let html = '';
 
-  // Si tiene padre, mostrar combo con los registros del padre (nexo = nombre)
-  if (_cfg.padre_tabla && _cfg.padre_opciones?.length) {
-    const labelPadre = _cfg.padre_tabla.charAt(0).toUpperCase() + _cfg.padre_tabla.slice(1);
+  // Si tiene padre y campo_padre_fk, sustituir ese campo por un combo
+  // (se renderiza aquí; luego al recorrer campos se salta ese campo)
+  if (_cfg.padre_tabla && _cfg.campo_padre_fk && _cfg.padre_opciones?.length) {
+    const campoFk = _cfg.campos.find(c => c.nombre === _cfg.campo_padre_fk);
+    const labelFk = campoFk?.etiqueta || _cfg.campo_padre_fk;
     html += `<div class="campo">
-      <label>${labelPadre}</label>
+      <label>${labelFk}</label>
       <select id="cat-f-padre">
         <option value="">— seleccionar —</option>
         ${_cfg.padre_opciones.map(o => `<option value="${o.nombre}">${o.nombre}</option>`).join('')}
@@ -329,9 +331,8 @@ async function _buildModalFields() {
   // Campos estándar del modelo
   const grupoDoble = [];
   campos.forEach(c => {
-    // Ocultar el campo texto snapshot de la FK padre (ej: 'departamento' si tenemos 'departamento_id')
-    const campoFkTexto = _cfg.campo_padre_fk?.replace('_id', '');
-    if (campoFkTexto && c.nombre === campoFkTexto) return;
+    // Saltar el campo que ya se muestra como combo padre
+    if (_cfg.campo_padre_fk && c.nombre === _cfg.campo_padre_fk) return;
 
     const required = c.es_requerido ? ' *' : '';
     const disabled = '';
@@ -360,10 +361,9 @@ async function _buildModalFields() {
 
   // Agrupar de dos en dos los campos que no sean el campo principal (que va solo)
   const principal = campos.find(c => c.nombre === _cfg.campo_principal);
-  const resto = campos.filter(c => {
-    const campoFkTexto = _cfg.campo_padre_fk?.replace('_id', '');
-    return c.nombre !== _cfg.campo_principal && !(campoFkTexto && c.nombre === campoFkTexto);
-  });
+  const resto = campos.filter(c =>
+    c.nombre !== _cfg.campo_principal && c.nombre !== _cfg.campo_padre_fk
+  );
 
   if (principal) {
     html += `<div class="campo"><label>${principal.etiqueta}${principal.es_requerido ? ' *' : ''}</label>
