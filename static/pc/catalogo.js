@@ -33,6 +33,7 @@ async function initCatalog() {
     if (!t) { document.body.innerHTML = '<p style="color:red">Tabla no encontrada para esta ruta</p>'; return; }
     tabla = t.nombre;
   }
+  window.__TABLA__ = tabla;  // normalizar para que el resto del código lo use
 
   _operario = initHeader();
   renderNavDinamica();
