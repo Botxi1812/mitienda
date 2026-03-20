@@ -4,17 +4,17 @@ from database import SessionLocal, engine
 import models
 models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
-if db.query(models.Operario).count() > 0:
+
+if db.query(models.Entidad).filter_by(tabla="operarios").count() > 0:
     print("Base de datos ya tiene datos. Saltando seed.")
     db.close()
     sys.exit(0)
+
 random.seed(42)
 
 # Departamentos
-depts = {}
 for nombre in ["Ventas", "Comercial", "Distribucion"]:
-    d = models.Departamento(nombre=nombre, datos=json.dumps({}))
-    db.add(d); db.flush(); depts[nombre] = d.id
+    db.add(models.Entidad(tabla="departamentos", nombre=nombre, datos=json.dumps({})))
 db.commit(); print("Departamentos OK")
 
 # Operarios
@@ -26,7 +26,7 @@ operarios_seed = [
     ("OP-005", "Miguel Torres",    "Distribucion"),
 ]
 for num, nombre, dept in operarios_seed:
-    db.add(models.Operario(nombre=nombre, datos=json.dumps({"numero": num, "departamento": dept})))
+    db.add(models.Entidad(tabla="operarios", nombre=nombre, datos=json.dumps({"numero": num, "departamento": dept})))
 db.commit(); print("Operarios OK")
 
 # Clientes
@@ -36,14 +36,14 @@ nms = ["Ana","Luis","Maria","Carlos","Laura","Javier","Sofia","David","Elena","M
        "Paula","Antonio","Carmen","Alejandro","Isabel","Manuel","Lucia","Pedro","Cristina","Raul"]
 cds = ["Barcelona","Madrid","Valencia","Sevilla","Bilbao","Zaragoza","Malaga","Alicante","Murcia","Palma"]
 for i in range(1, 101):
-    db.add(models.Cliente(
+    db.add(models.Entidad(
+        tabla="clientes",
         nombre=f"{random.choice(nms)} {random.choice(aps)}",
         datos=json.dumps({"codigo": f"CLI-{i:03d}", "email": f"cliente{i:03d}@empresa.com", "ciudad": random.choice(cds)})
     ))
 db.commit(); print("Clientes OK")
 
 # Articulos
-arts = {}
 articulos_seed = [
     ("ART-001", "Laptop Pro 15",      "Electronica",    1299.99),
     ("ART-002", "Monitor UHD 27",     "Electronica",     449.00),
@@ -57,8 +57,11 @@ articulos_seed = [
     ("ART-010", "Disco SSD 2TB",      "Almacenamiento",  189.00),
 ]
 for cod, desc, cat, precio in articulos_seed:
-    a = models.Articulo(nombre=desc, datos=json.dumps({"codigo": cod, "categoria": cat, "precio": precio}))
-    db.add(a); db.flush(); arts[cod] = a
+    db.add(models.Entidad(
+        tabla="articulos",
+        nombre=desc,
+        datos=json.dumps({"codigo": cod, "categoria": cat, "precio": precio})
+    ))
 db.commit(); print("Articulos OK")
 
 # Tabla definiciones
@@ -92,6 +95,7 @@ campos = [
     models.CampoDefinicion(tabla="articulos",     nombre="precio",    etiqueta="Precio",    tipo="numero", es_principal=0, es_requerido=1, orden=3, activo=1),
     models.CampoDefinicion(tabla="operarios",     nombre="nombre",    etiqueta="Nombre",    tipo="texto",  es_principal=1, es_requerido=1, orden=0, activo=1),
     models.CampoDefinicion(tabla="operarios",     nombre="numero",    etiqueta="Numero",    tipo="texto",  es_principal=0, es_requerido=0, orden=1, activo=1),
+    models.CampoDefinicion(tabla="operarios",     nombre="departamento", etiqueta="Departamento", tipo="texto", es_principal=0, es_requerido=0, orden=2, activo=1),
     models.CampoDefinicion(tabla="departamentos", nombre="nombre",    etiqueta="Nombre",    tipo="texto",  es_principal=1, es_requerido=1, orden=0, activo=1),
 ]
 for c in campos:

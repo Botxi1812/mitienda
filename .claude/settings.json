@@ -12,7 +12,12 @@
       "Bash(mv \"SEGUNDO PROYECCTO CON 5 FIJOS Y RESTO JSON.zip\" \"../mitienda seg/\")",
       "Bash(mv GITHUB.md \"../mitienda seg/\")",
       "Bash(mv MANUAL_DESPLIEGUE.md \"../mitienda seg/\")",
-      "Bash(mv PENDIENTE_2026-03-17.md \"../mitienda seg/\")"
+      "Bash(mv PENDIENTE_2026-03-17.md \"../mitienda seg/\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(for f:*)",
+      "Bash(sed -i 's|<table><thead id=\"\"cat-thead\"\"></thead>|<table><colgroup id=\"\"cat-colgroup\"\"></colgroup><thead id=\"\"cat-thead\"\"></thead>|g' \"$f\")"
     ],
     "additionalDirectories": [
       "c:\\mitienda seg",

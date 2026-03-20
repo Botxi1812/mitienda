@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -13,25 +13,29 @@ subprocess.run([sys.executable, "seed.py"], check=False)
 app = FastAPI(title="Mi Tienda")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ── Páginas ───────────────────────────────────────────────────────────────────
+# ── Paginas fijas ─────────────────────────────────────────────────────────────
 @app.get("/")
-def root():               return FileResponse("static/pc/login.html")
-@app.get("/nueva-venta")
-def nueva_venta():        return FileResponse("static/pc/ventas.html")
+def root():           return FileResponse("static/pc/login.html")
 @app.get("/ventas")
-def ventas():             return FileResponse("static/pc/consultas.html")
-@app.get("/clientes")
-def clientes_page():      return FileResponse("static/pc/clientes.html")
-@app.get("/trabajadores")
-def trabajadores_page():  return FileResponse("static/pc/trabajadores.html")
-@app.get("/articulos")
-def articulos_page():     return FileResponse("static/pc/articulos.html")
-@app.get("/departamentos")
-def departamentos_page(): return FileResponse("static/pc/departamentos.html")
+def ventas():         return FileResponse("static/pc/consultas.html")
+@app.get("/nueva-venta")
+def nueva_venta():    return FileResponse("static/pc/ventas.html")
 @app.get("/configuracion")
-def configuracion_page(): return FileResponse("static/pc/configuracion.html")
+def configuracion():  return FileResponse("static/pc/configuracion.html")
 @app.get("/movil")
-def movil():              return FileResponse("static/movil/login.html")
+def movil():          return FileResponse("static/movil/login.html")
+
+# ── Paginas dinamicas de catalogo (una sola ruta sirve catalogo.html) ─────────
+@app.get("/{ruta}")
+def catalogo_page(ruta: str):
+    db = database.SessionLocal()
+    try:
+        t = db.query(models.TablaDefinicion).filter_by(ruta=ruta, activa=1).first()
+    finally:
+        db.close()
+    if not t:
+        raise HTTPException(404)
+    return FileResponse("static/pc/catalogo.html")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_db():
@@ -41,6 +45,7 @@ def get_db():
     finally:
         db.close()
 
+
 def parse_datos(val):
     if not val: return {}
     try: return json.loads(val)
@@ -48,23 +53,16 @@ def parse_datos(val):
 
 def dump_datos(d): return json.dumps(d, ensure_ascii=False)
 
-MODEL_MAP = {
-    "clientes":      models.Cliente,
-    "articulos":     models.Articulo,
-    "operarios":     models.Operario,
-    "departamentos": models.Departamento,
-}
-
-def row_to_dict(row):
-    d = parse_datos(getattr(row, "datos", "{}"))
-    result = {"id": row.id, "nombre": row.nombre}
+def entidad_a_dict(e):
+    d = parse_datos(e.datos)
+    result = {"id": e.id, "nombre": e.nombre}
     result.update(d)
     return result
 
-# ── Login ─────────────────────────────────────────────────────────────────────
+# ── Login: operarios ──────────────────────────────────────────────────────────
 @app.get("/api/operarios")
 def get_operarios(db: Session = Depends(get_db)):
-    ops = db.query(models.Operario).order_by(models.Operario.nombre).all()
+    ops = db.query(models.Entidad).filter_by(tabla="operarios").order_by(models.Entidad.nombre).all()
     result = []
     for op in ops:
         d = parse_datos(op.datos)
@@ -123,44 +121,39 @@ def get_tabla_config(tabla: str, db: Session = Depends(get_db)):
     campos = db.query(models.CampoDefinicion).filter_by(tabla=tabla, activo=1).order_by(models.CampoDefinicion.orden).all()
     padre_opciones = []
     if t.padre_tabla:
-        Modelo = MODEL_MAP.get(t.padre_tabla)
-        if Modelo:
-            filas = db.query(Modelo).order_by(Modelo.nombre).all()
-            padre_opciones = [{"id": f.id, "label": f.nombre} for f in filas]
+        filas = db.query(models.Entidad).filter_by(tabla=t.padre_tabla).order_by(models.Entidad.nombre).all()
+        padre_opciones = [{"id": f.id, "label": f.nombre} for f in filas]
     return {**_tabla_dict(t), "campos": [_campo_dict(c) for c in campos], "padre_opciones": padre_opciones}
 
-# ── Entidades genéricas ───────────────────────────────────────────────────────
+# ── Entidades genericas (todas las tablas de catalogo) ────────────────────────
 @app.get("/api/entidad/{tabla}")
 def get_entidad(tabla: str, db: Session = Depends(get_db)):
-    Modelo = MODEL_MAP.get(tabla)
-    if not Modelo:
+    t = db.query(models.TablaDefinicion).filter_by(nombre=tabla).first()
+    if not t:
         raise HTTPException(404, f"Tabla '{tabla}' no encontrada")
-    return [row_to_dict(f) for f in db.query(Modelo).order_by(Modelo.nombre).all()]
+    filas = db.query(models.Entidad).filter_by(tabla=tabla).order_by(models.Entidad.nombre).all()
+    return [entidad_a_dict(f) for f in filas]
 
 @app.post("/api/entidad/{tabla}")
 def crear_entidad(tabla: str, body: Dict[str, Any], db: Session = Depends(get_db)):
-    Modelo = MODEL_MAP.get(tabla)
-    if not Modelo:
-        raise HTTPException(404)
+    t = db.query(models.TablaDefinicion).filter_by(nombre=tabla).first()
+    if not t:
+        raise HTTPException(404, f"Tabla '{tabla}' no encontrada")
     nombre = body.get("nombre", "").strip()
     if not nombre:
         raise HTTPException(400, "El campo nombre es obligatorio")
     datos_json = {k: v for k, v in body.items() if k not in ("nombre", "id")}
-    kwargs = {"nombre": nombre, "datos": dump_datos(datos_json)}
-    fila = Modelo(**kwargs)
+    fila = models.Entidad(tabla=tabla, nombre=nombre, datos=dump_datos(datos_json))
     db.add(fila)
     try:
         db.commit(); db.refresh(fila)
     except Exception as e:
         db.rollback(); raise HTTPException(400, str(e))
-    return row_to_dict(fila)
+    return entidad_a_dict(fila)
 
 @app.put("/api/entidad/{tabla}/{id}")
 def actualizar_entidad(tabla: str, id: int, body: Dict[str, Any], db: Session = Depends(get_db)):
-    Modelo = MODEL_MAP.get(tabla)
-    if not Modelo:
-        raise HTTPException(404)
-    fila = db.query(Modelo).filter(Modelo.id == id).first()
+    fila = db.query(models.Entidad).filter_by(tabla=tabla, id=id).first()
     if not fila:
         raise HTTPException(404)
     if "nombre" in body and body["nombre"]:
@@ -174,14 +167,11 @@ def actualizar_entidad(tabla: str, id: int, body: Dict[str, Any], db: Session = 
         db.commit(); db.refresh(fila)
     except Exception as e:
         db.rollback(); raise HTTPException(400, str(e))
-    return row_to_dict(fila)
+    return entidad_a_dict(fila)
 
 @app.delete("/api/entidad/{tabla}/{id}")
 def eliminar_entidad(tabla: str, id: int, db: Session = Depends(get_db)):
-    Modelo = MODEL_MAP.get(tabla)
-    if not Modelo:
-        raise HTTPException(404)
-    fila = db.query(Modelo).filter(Modelo.id == id).first()
+    fila = db.query(models.Entidad).filter_by(tabla=tabla, id=id).first()
     if not fila:
         raise HTTPException(404)
     db.delete(fila)
@@ -207,15 +197,14 @@ class VentaIn(BaseModel):
 def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
     if not body.lineas:
         raise HTTPException(400, "Sin lineas")
-    op = db.query(models.Operario).filter_by(id=body.operario_id).first()
+    op = db.query(models.Entidad).filter_by(tabla="operarios", id=body.operario_id).first()
     if not op:
         raise HTTPException(404, "Operario no encontrado")
     op_datos = parse_datos(op.datos)
     departamento = op_datos.get("departamento", "")
-    cli = db.query(models.Cliente).filter_by(id=body.cliente_id).first() if body.cliente_id else None
+    cli = db.query(models.Entidad).filter_by(tabla="clientes", id=body.cliente_id).first() if body.cliente_id else None
     cli_datos = parse_datos(cli.datos) if cli else {}
     ultimo = db.query(models.LineaVenta).order_by(models.LineaVenta.id.desc()).first()
-    # Extraer numero de venta del ultimo registro
     if ultimo and ultimo.numero_venta and ultimo.numero_venta.startswith("TCK-"):
         try: num = int(ultimo.numero_venta[4:]) + 1
         except: num = 1
@@ -223,8 +212,11 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
         num = 1
     numero = f"TCK-{num:05d}"
     ahora = datetime.now()
+    # Buscar tabla de articulos (puede llamarse de cualquier forma con en_venta_tipo='lineas')
+    t_art = db.query(models.TablaDefinicion).filter_by(en_venta_tipo="lineas").first()
+    tabla_art = t_art.nombre if t_art else "articulos"
     for l in body.lineas:
-        art = db.query(models.Articulo).filter_by(id=l.articulo_id).first()
+        art = db.query(models.Entidad).filter_by(tabla=tabla_art, id=l.articulo_id).first()
         if not art:
             raise HTTPException(404, f"Articulo {l.articulo_id} no encontrado")
         art_datos = parse_datos(art.datos)
@@ -241,7 +233,11 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
             cantidad=l.cantidad,
             importe=round(l.cantidad * l.precio_unitario, 2),
             tipo_pago=l.tipo_pago or "",
-            datos=dump_datos({"cliente_cod": cli_datos.get("codigo", ""), "ciudad": cli_datos.get("ciudad", ""), "operario_num": op_datos.get("numero", "")}),
+            datos=dump_datos({
+                "cliente_cod": cli_datos.get("codigo", ""),
+                "ciudad": cli_datos.get("ciudad", ""),
+                "operario_num": op_datos.get("numero", ""),
+            }),
         ))
     db.commit()
     return {"ok": True, "numero": numero}
@@ -268,7 +264,6 @@ def _linea_dict(l):
         "modificado_por": l.modificado_por,
         "fecha_modificacion": l.fecha_modificacion,
     }
-    # campos extra JSON adicionales
     for k, v in extra.items():
         if k not in d:
             d[k] = v
@@ -311,23 +306,23 @@ def patch_lineas(cambios: List[LineaCambio], db: Session = Depends(get_db)):
     for c in cambios:
         l = db.query(models.LineaVenta).filter_by(id=c.id).first()
         if not l: continue
-        if c.cantidad is not None:        l.cantidad         = c.cantidad
-        if c.precio_unitario is not None: l.precio_unitario  = c.precio_unitario
-        if c.tipo_pago is not None:       l.tipo_pago        = c.tipo_pago
-        if c.modificado_por:              l.modificado_por   = c.modificado_por
+        if c.cantidad is not None:        l.cantidad        = c.cantidad
+        if c.precio_unitario is not None: l.precio_unitario = c.precio_unitario
+        if c.tipo_pago is not None:       l.tipo_pago       = c.tipo_pago
+        if c.modificado_por:              l.modificado_por  = c.modificado_por
         l.importe            = round((l.cantidad or 0) * (l.precio_unitario or 0), 2)
         l.fecha_modificacion = datetime.now().strftime("%d/%m/%Y %H:%M")
     db.commit()
     return {"ok": True}
 
 @app.delete("/api/lineas/{id}")
-def delete_linea(id: int, modificado_por: Optional[str] = "", db: Session = Depends(get_db)):
+def delete_linea(id: int, db: Session = Depends(get_db)):
     l = db.query(models.LineaVenta).filter_by(id=id).first()
     if not l: raise HTTPException(404)
     db.delete(l); db.commit()
     return {"ok": True}
 
-# ── Configuración de campos ───────────────────────────────────────────────────
+# ── Configuracion de campos ───────────────────────────────────────────────────
 @app.get("/api/config/campos")
 def get_config_campos(db: Session = Depends(get_db)):
     campos = db.query(models.CampoDefinicion).filter_by(activo=1).order_by(models.CampoDefinicion.orden).all()
@@ -368,7 +363,7 @@ def eliminar_campo(id: int, db: Session = Depends(get_db)):
     db.delete(c); db.commit()
     return {"ok": True}
 
-# ── Parámetros ────────────────────────────────────────────────────────────────
+# ── Parametros ────────────────────────────────────────────────────────────────
 @app.get("/api/config/parametros")
 def get_parametros(db: Session = Depends(get_db)):
     return [{"clave": p.clave, "valor": p.valor, "etiqueta": p.etiqueta} for p in db.query(models.ConfiguracionParametro).all()]
@@ -397,7 +392,8 @@ class PerfilIn(BaseModel):
 
 @app.post("/api/perfiles")
 def crear_perfil(body: PerfilIn, db: Session = Depends(get_db)):
-    p = models.PerfilVista(pantalla=body.pantalla, operario_id=body.operario_id, nombre=body.nombre, config=dump_datos(body.config), creado=datetime.now().strftime("%Y-%m-%d %H:%M"))
+    p = models.PerfilVista(pantalla=body.pantalla, operario_id=body.operario_id, nombre=body.nombre,
+        config=dump_datos(body.config), creado=datetime.now().strftime("%Y-%m-%d %H:%M"))
     db.add(p); db.commit(); db.refresh(p)
     return {"ok": True, "id": p.id}
 
@@ -420,17 +416,17 @@ def borrar_perfil(id: int, db: Session = Depends(get_db)):
 @app.get("/api/consultas/config")
 def get_consultas_config():
     return [
-        {"campo": "numero_venta",    "etiqueta": "Ticket",      "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
-        {"campo": "fecha",           "etiqueta": "Fecha",        "ancho_default": 130, "en_default": True,  "tipo_render": ""},
-        {"campo": "operario",        "etiqueta": "Operario",     "ancho_default": 120, "en_default": True,  "tipo_render": ""},
-        {"campo": "departamento",    "etiqueta": "Depto.",       "ancho_default": 100, "en_default": False, "tipo_render": ""},
-        {"campo": "cliente",         "etiqueta": "Cliente",      "ancho_default": 150, "en_default": True,  "tipo_render": ""},
-        {"campo": "ciudad",          "etiqueta": "Ciudad",       "ancho_default": 110, "en_default": False, "tipo_render": ""},
-        {"campo": "articulo_cod",    "etiqueta": "Cod. Art.",    "ancho_default": 90,  "en_default": False, "tipo_render": ""},
-        {"campo": "articulo",        "etiqueta": "Articulo",     "ancho_default": 180, "en_default": True,  "tipo_render": ""},
-        {"campo": "cantidad",        "etiqueta": "Cant.",        "ancho_default": 70,  "en_default": True,  "tipo_render": "cantidad"},
-        {"campo": "precio_unitario", "etiqueta": "Precio",       "ancho_default": 90,  "en_default": True,  "tipo_render": "moneda"},
-        {"campo": "importe",         "etiqueta": "Importe",      "ancho_default": 100, "en_default": True,  "tipo_render": "importe"},
-        {"campo": "tipo_pago",       "etiqueta": "Pago",         "ancho_default": 80,  "en_default": True,  "tipo_render": ""},
-        {"campo": "modificado_por",  "etiqueta": "Modif. por",   "ancho_default": 110, "en_default": False, "tipo_render": "subdued"},
+        {"campo": "numero_venta",    "etiqueta": "Ticket",     "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
+        {"campo": "fecha",           "etiqueta": "Fecha",       "ancho_default": 130, "en_default": True,  "tipo_render": ""},
+        {"campo": "operario",        "etiqueta": "Operario",    "ancho_default": 120, "en_default": True,  "tipo_render": ""},
+        {"campo": "departamento",    "etiqueta": "Depto.",      "ancho_default": 100, "en_default": False, "tipo_render": ""},
+        {"campo": "cliente",         "etiqueta": "Cliente",     "ancho_default": 150, "en_default": True,  "tipo_render": ""},
+        {"campo": "ciudad",          "etiqueta": "Ciudad",      "ancho_default": 110, "en_default": False, "tipo_render": ""},
+        {"campo": "articulo_cod",    "etiqueta": "Cod. Art.",   "ancho_default": 90,  "en_default": False, "tipo_render": ""},
+        {"campo": "articulo",        "etiqueta": "Articulo",    "ancho_default": 180, "en_default": True,  "tipo_render": ""},
+        {"campo": "cantidad",        "etiqueta": "Cant.",       "ancho_default": 70,  "en_default": True,  "tipo_render": "cantidad"},
+        {"campo": "precio_unitario", "etiqueta": "Precio",      "ancho_default": 90,  "en_default": True,  "tipo_render": "moneda"},
+        {"campo": "importe",         "etiqueta": "Importe",     "ancho_default": 100, "en_default": True,  "tipo_render": "importe"},
+        {"campo": "tipo_pago",       "etiqueta": "Pago",        "ancho_default": 80,  "en_default": True,  "tipo_render": ""},
+        {"campo": "modificado_por",  "etiqueta": "Modif. por",  "ancho_default": 110, "en_default": False, "tipo_render": "subdued"},
     ]

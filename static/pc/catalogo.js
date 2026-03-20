@@ -24,8 +24,15 @@ let _mt = null;  // instancia MiTabla
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function initCatalog() {
-  const tabla = window.__TABLA__;
-  if (!tabla) { document.body.innerHTML = '<p style="color:red">Error: window.__TABLA__ no definido</p>'; return; }
+  // Tabla: desde window.__TABLA__ (legacy) o desde la URL (/clientes -> buscar ruta='clientes')
+  let tabla = window.__TABLA__;
+  if (!tabla) {
+    const ruta = window.location.pathname.replace(/^\//, '');
+    const tablasDef = await fetch('/api/tablas').then(r => r.json()).catch(() => []);
+    const t = tablasDef.find(x => x.ruta === ruta);
+    if (!t) { document.body.innerHTML = '<p style="color:red">Tabla no encontrada para esta ruta</p>'; return; }
+    tabla = t.nombre;
+  }
 
   _operario = initHeader();
   renderNavDinamica();
