@@ -24,18 +24,8 @@ def nueva_venta():    return FileResponse("static/pc/ventas.html")
 def configuracion():  return FileResponse("static/pc/configuracion.html")
 @app.get("/movil")
 def movil():          return FileResponse("static/movil/login.html")
-
-# ── Paginas dinamicas de catalogo (una sola ruta sirve catalogo.html) ─────────
-@app.get("/{ruta}")
-def catalogo_page(ruta: str):
-    db = database.SessionLocal()
-    try:
-        t = db.query(models.TablaDefinicion).filter_by(ruta=ruta, activa=1).first()
-    finally:
-        db.close()
-    if not t:
-        raise HTTPException(404)
-    return FileResponse("static/pc/catalogo.html")
+@app.get("/estructura")
+def estructura():     return FileResponse("static/pc/estructura.html")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_db():
@@ -117,6 +107,63 @@ def get_tablas(
     if participa_venta:
         q = q.filter(models.TablaDefinicion.en_venta_tipo != "ninguno")
     return [_tabla_dict(t) for t in q.order_by(models.TablaDefinicion.orden_nav).all()]
+
+class TablaIn(BaseModel):
+    nombre:           str
+    etiqueta:         str
+    etiqueta_singular: str = ""
+    icono:            str = ""
+    padre_tabla:      str = ""
+    en_nav:           int = 1
+    orden_nav:        int = 99
+    en_venta_tipo:    str = "ninguno"
+    en_filtros:       int = 0
+
+@app.post("/api/tablas")
+def crear_tabla(body: TablaIn, db: Session = Depends(get_db)):
+    import re, unicodedata
+    nombre = unicodedata.normalize("NFKD", body.nombre.lower())
+    nombre = "".join(c for c in nombre if not unicodedata.combining(c))
+    nombre = re.sub(r"[^a-z0-9]+", "_", nombre).strip("_")
+    existe = db.query(models.TablaDefinicion).filter_by(nombre=nombre).first()
+    if existe:
+        raise HTTPException(400, f"Ya existe una tabla con nombre '{nombre}'")
+    ruta = nombre.replace("_", "-")
+    etiqueta_singular = body.etiqueta_singular or body.etiqueta.rstrip("s")
+    t = models.TablaDefinicion(
+        nombre=nombre, etiqueta=body.etiqueta, etiqueta_singular=etiqueta_singular,
+        icono=body.icono, ruta=ruta, padre_tabla=body.padre_tabla,
+        campo_principal="nombre", en_nav=body.en_nav, orden_nav=body.orden_nav,
+        en_venta_tipo=body.en_venta_tipo, en_filtros=body.en_filtros,
+        es_sistema=0, es_login=0, activa=1,
+    )
+    db.add(t)
+    # Campo principal 'nombre' siempre
+    db.add(models.CampoDefinicion(tabla=nombre, nombre="nombre", etiqueta="Nombre",
+        tipo="texto", es_principal=1, es_requerido=1, orden=0, activo=1))
+    try:
+        db.commit(); db.refresh(t)
+    except Exception as e:
+        db.rollback(); raise HTTPException(400, str(e))
+    return _tabla_dict(t)
+
+@app.delete("/api/tablas/{nombre}")
+def eliminar_tabla(nombre: str, db: Session = Depends(get_db)):
+    t = db.query(models.TablaDefinicion).filter_by(nombre=nombre).first()
+    if not t:
+        raise HTTPException(404, f"Tabla '{nombre}' no encontrada")
+    # No eliminar tablas con rol fijo
+    if t.es_login or t.en_venta_tipo in ("selector", "lineas") or t.es_sistema:
+        raise HTTPException(400, "No se puede eliminar una tabla con rol del sistema")
+    # Borrar entidades y campos
+    db.query(models.Entidad).filter_by(tabla=nombre).delete()
+    db.query(models.CampoDefinicion).filter_by(tabla=nombre).delete()
+    db.delete(t)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback(); raise HTTPException(400, str(e))
+    return {"ok": True}
 
 @app.get("/api/tablas/{tabla}/config")
 def get_tabla_config(tabla: str, db: Session = Depends(get_db)):
@@ -434,3 +481,15 @@ def get_consultas_config():
         {"campo": "tipo_pago",       "etiqueta": "Pago",        "ancho_default": 80,  "en_default": True,  "tipo_render": ""},
         {"campo": "modificado_por",  "etiqueta": "Modif. por",  "ancho_default": 110, "en_default": False, "tipo_render": "subdued"},
     ]
+
+# ── Paginas dinamicas de catalogo — DEBE IR AL FINAL para no capturar rutas API ──
+@app.get("/{ruta}")
+def catalogo_page(ruta: str):
+    db = database.SessionLocal()
+    try:
+        t = db.query(models.TablaDefinicion).filter_by(ruta=ruta, activa=1).first()
+    finally:
+        db.close()
+    if not t:
+        raise HTTPException(404)
+    return FileResponse("static/pc/catalogo.html")

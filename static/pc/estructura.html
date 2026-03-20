@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Tienda — Estructura</title>
+<link rel="stylesheet" href="/static/pc/comun.css">
+<style>
+  main { padding: 20px; }
+
+  .toolbar-estructura {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .btn-nueva-tabla {
+    padding: 9px 20px; background: #059669; color: #fff;
+    border: none; border-radius: 8px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-nueva-tabla:hover { background: #047857; }
+
+  /* ── Canvas del diagrama ── */
+  #diagrama {
+    position: relative;
+    min-height: 600px;
+    background: #f8fafc;
+    border-radius: 14px;
+    border: 1.5px solid #e5e7eb;
+    overflow: auto;
+  }
+
+  svg#flechas {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* ── Tarjeta de tabla ── */
+  .tabla-nodo {
+    position: absolute;
+    width: 220px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.10);
+    border: 2px solid #e5e7eb;
+    cursor: move;
+    user-select: none;
+    transition: box-shadow .15s;
+  }
+  .tabla-nodo:hover { box-shadow: 0 4px 20px rgba(0,0,0,.15); }
+  .tabla-nodo.rol-fijo { border-color: #3b82f6; }
+  .tabla-nodo.sistema { border-color: #6b7280; opacity: .7; }
+
+  .nodo-header {
+    padding: 10px 14px 8px;
+    border-radius: 10px 10px 0 0;
+    background: #1e3a5f;
+    color: #fff;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tabla-nodo.rol-fijo .nodo-header { background: #1d4ed8; }
+  .tabla-nodo.sistema   .nodo-header { background: #4b5563; }
+
+  .nodo-nombre { font-size: 13px; font-weight: 700; flex: 1; }
+  .nodo-etiqueta { font-size: 11px; color: #93c5fd; }
+
+  .badge-rol {
+    font-size: 10px; font-weight: 700; padding: 2px 6px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .badge-login    { background: #fef3c7; color: #92400e; }
+  .badge-selector { background: #dcfce7; color: #166534; }
+  .badge-lineas   { background: #ede9fe; color: #5b21b6; }
+  .badge-sistema  { background: #f1f5f9; color: #64748b; }
+
+  .nodo-campos {
+    padding: 8px 0 4px;
+  }
+  .nodo-campo {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 14px;
+    font-size: 11px; color: #374151;
+  }
+  .nodo-campo.principal {
+    font-weight: 700; color: #1e3a5f;
+  }
+  .campo-tipo {
+    font-size: 10px; color: #9ca3af;
+    background: #f3f4f6; border-radius: 4px;
+    padding: 1px 4px; margin-left: auto;
+  }
+  .nodo-campo-lock {
+    font-size: 10px; color: #3b82f6;
+  }
+
+  .nodo-footer {
+    padding: 8px 14px;
+    border-top: 1px solid #f3f4f6;
+    display: flex; gap: 6px;
+  }
+  .btn-nodo {
+    flex: 1; padding: 5px 0; font-size: 11px; font-weight: 600;
+    border: none; border-radius: 6px; cursor: pointer;
+  }
+  .btn-nodo-config { background: #eff6ff; color: #1d4ed8; }
+  .btn-nodo-config:hover { background: #dbeafe; }
+  .btn-nodo-del   { background: #fef2f2; color: #dc2626; }
+  .btn-nodo-del:hover { background: #fee2e2; }
+  .btn-nodo-del:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* ── Linea ventas (fija, centro) ── */
+  .tabla-nodo.ventas-fija { border-color: #f59e0b; }
+  .tabla-nodo.ventas-fija .nodo-header { background: #b45309; }
+
+  /* ── Modal nueva tabla ── */
+  .modal-nueva-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  .modal-nueva-bg.show { display: flex; }
+  .modal-nueva {
+    background: #fff; border-radius: 16px;
+    padding: 28px; width: 420px; max-width: 95vw;
+  }
+  .modal-nueva h3 { font-size: 16px; font-weight: 700; color: #1e3a5f; margin-bottom: 18px; }
+  .campo { margin-bottom: 14px; }
+  .campo label { display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 5px; text-transform: uppercase; }
+  .campo input, .campo select {
+    width: 100%; padding: 9px 12px;
+    border: 1.5px solid #e5e7eb; border-radius: 8px;
+    font-size: 13px; color: #111827;
+  }
+  .campo input:focus, .campo select:focus { outline: none; border-color: #3b82f6; }
+  .modal-nueva-footer { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-nueva-footer button { flex: 1; padding: 11px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+  .btn-cancelar-nueva { background: #f3f4f6; color: #374151; }
+  .btn-guardar-nueva  { background: #059669; color: #fff; }
+  .btn-guardar-nueva:hover { background: #047857; }
+
+  .leyenda {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 16px; font-size: 12px; color: #6b7280;
+    align-items: center;
+  }
+  .leyenda-item { display: flex; align-items: center; gap: 5px; }
+  .leyenda-dot {
+    width: 12px; height: 12px; border-radius: 3px; border: 2px solid;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:16px">
+    <h1>&#127978; Mi Tienda</h1>
+    <nav class="nav-links" id="nav-dinamica"></nav>
+  </div>
+  <div class="user-info">
+    <div class="avatar" id="avatar">?</div>
+    <div id="op-nombre" style="font-weight:600;font-size:13px"></div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar-estructura">
+    <button class="btn-nueva-tabla" onclick="abrirModalNueva()">+ Nueva tabla</button>
+    <div class="leyenda">
+      <div class="leyenda-item"><div class="leyenda-dot" style="border-color:#1d4ed8;background:#eff6ff"></div> Rol fijo (venta)</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="border-color:#b45309;background:#fef3c7"></div> Lineas venta (sistema)</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="border-color:#4b5563;background:#f1f5f9"></div> Sistema</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="border-color:#e5e7eb;background:#fff"></div> Catalogo</div>
+    </div>
+  </div>
+
+  <div id="diagrama">
+    <svg id="flechas"></svg>
+    <div id="nodos"></div>
+  </div>
+</main>
+
+<!-- Modal nueva tabla -->
+<div class="modal-nueva-bg" id="modal-nueva">
+  <div class="modal-nueva">
+    <h3>Nueva tabla</h3>
+    <div class="campo">
+      <label>Nombre interno (sin espacios)</label>
+      <input id="nueva-nombre" type="text" placeholder="ej: proveedores">
+    </div>
+    <div class="campo">
+      <label>Etiqueta (plural)</label>
+      <input id="nueva-etiqueta" type="text" placeholder="ej: Proveedores">
+    </div>
+    <div class="campo">
+      <label>Etiqueta singular</label>
+      <input id="nueva-etiqueta-singular" type="text" placeholder="ej: Proveedor">
+    </div>
+    <div class="campo">
+      <label>Ruta URL</label>
+      <input id="nueva-ruta" type="text" placeholder="ej: proveedores">
+    </div>
+    <div class="campo">
+      <label>Rol en venta</label>
+      <select id="nueva-venta-tipo">
+        <option value="ninguno">Ninguno</option>
+        <option value="selector">Selector (ej: cliente)</option>
+        <option value="lineas">Lineas (ej: articulo)</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Tabla padre (opcional)</label>
+      <select id="nueva-padre">
+        <option value="">— sin padre —</option>
+      </select>
+    </div>
+    <div class="modal-nueva-footer">
+      <button class="btn-cancelar-nueva" onclick="cerrarModalNueva()">Cancelar</button>
+      <button class="btn-guardar-nueva"  onclick="guardarNuevaTabla()">Crear tabla</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/pc/comun.js"></script>
+<script>
+initHeader();
+renderNavDinamica();
+
+let _tablas = [];
+let _campos = {};
+let _posiciones = {};  // {nombre: {x, y}}
+
+// ── Carga ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const [tablas, camposCfg] = await Promise.all([
+    fetch('/api/tablas').then(r => r.json()),
+    fetch('/api/config/campos').then(r => r.json()),
+  ]);
+  _tablas = tablas;
+  _campos = camposCfg;
+  calcularPosiciones();
+  renderDiagrama();
+}
+
+// ── Layout automático ──────────────────────────────────────────────────────────
+function calcularPosiciones() {
+  // Cargar posiciones guardadas en localStorage
+  const guardadas = JSON.parse(localStorage.getItem('estructura_pos') || '{}');
+
+  // LineaVenta siempre en el centro
+  const cx = 520, cy = 240;
+  _posiciones['__ventas__'] = guardadas['__ventas__'] || { x: cx, y: cy };
+
+  // Tablas con rol fijo: alrededor de LineaVenta
+  const roles = [
+    _tablas.find(t => t.es_login),
+    _tablas.find(t => t.en_venta_tipo === 'selector'),
+    _tablas.find(t => t.en_venta_tipo === 'lineas'),
+  ].filter(Boolean);
+
+  const angulos = [-130, 180, -50];  // grados alrededor del centro
+  roles.forEach((t, i) => {
+    if (!guardadas[t.nombre]) {
+      const rad = (angulos[i] * Math.PI) / 180;
+      _posiciones[t.nombre] = { x: cx + 260 * Math.cos(rad), y: cy + 200 * Math.sin(rad) };
+    } else {
+      _posiciones[t.nombre] = guardadas[t.nombre];
+    }
+  });
+
+  // Resto de tablas: fila inferior
+  const resto = _tablas.filter(t => !roles.includes(t));
+  let rx = 40, ry = 520;
+  resto.forEach(t => {
+    _posiciones[t.nombre] = guardadas[t.nombre] || { x: rx, y: ry };
+    rx += 250;
+    if (rx > 900) { rx = 40; ry += 320; }
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderDiagrama() {
+  renderNodos();
+  renderFlechas();
+}
+
+function rolTabla(t) {
+  if (t.es_login)                    return { badge: 'Login', cls: 'badge-login',    fijo: true };
+  if (t.en_venta_tipo === 'selector') return { badge: 'Selector', cls: 'badge-selector', fijo: true };
+  if (t.en_venta_tipo === 'lineas')   return { badge: 'Lineas', cls: 'badge-lineas',   fijo: true };
+  if (t.es_sistema)                   return { badge: 'Sistema', cls: 'badge-sistema',  fijo: false };
+  return null;
+}
+
+function renderNodos() {
+  const cont = document.getElementById('nodos');
+
+  // Nodo LineaVenta (fijo del sistema)
+  const pv = _posiciones['__ventas__'];
+  cont.innerHTML = `
+    <div class="tabla-nodo ventas-fija" id="nodo-__ventas__"
+      style="left:${pv.x}px;top:${pv.y}px"
+      onmousedown="iniciarDrag(event,'__ventas__')">
+      <div class="nodo-header">
+        <div>
+          <div class="nodo-nombre">Lineas venta</div>
+          <div class="nodo-etiqueta">Tabla fija del sistema</div>
+        </div>
+        <span class="badge-rol badge-sistema">&#128274; Sistema</span>
+      </div>
+      <div class="nodo-campos">
+        ${['numero_venta','fecha','operario *','cliente *','articulo *','precio_unitario','cantidad','importe','tipo_pago','datos (snapshot)'].map(c => `
+          <div class="nodo-campo ${c.includes('*')?'principal':''}">
+            <span>${c.replace(' *','')}</span>
+            ${c.includes('*') ? '<span class="nodo-campo-lock">&#128279;</span>' : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  // Nodos de tablas dinámicas
+  _tablas.forEach(t => {
+    const pos = _posiciones[t.nombre] || { x: 40, y: 40 };
+    const rol = rolTabla(t);
+    const campos = _campos[t.nombre] || [];
+    const esFijo = rol?.fijo;
+
+    const camposHtml = campos.map(c => `
+      <div class="nodo-campo ${c.es_principal ? 'principal' : ''}">
+        <span>${c.etiqueta}</span>
+        ${c.es_principal ? '<span class="nodo-campo-lock" title="Campo fijo">&#128274;</span>' : ''}
+        <span class="campo-tipo">${c.tipo}</span>
+      </div>`).join('');
+
+    const badgeHtml = rol
+      ? `<span class="badge-rol ${rol.cls}">${rol.fijo ? '&#128274; ' : ''}${rol.badge}</span>`
+      : '';
+
+    const clsExtra = esFijo ? 'rol-fijo' : (t.es_sistema ? 'sistema' : '');
+
+    cont.innerHTML += `
+      <div class="tabla-nodo ${clsExtra}" id="nodo-${t.nombre}"
+        style="left:${pos.x}px;top:${pos.y}px"
+        onmousedown="iniciarDrag(event,'${t.nombre}')">
+        <div class="nodo-header">
+          <div>
+            <div class="nodo-nombre">${t.etiqueta}</div>
+            <div class="nodo-etiqueta">/${t.ruta}</div>
+          </div>
+          ${badgeHtml}
+        </div>
+        <div class="nodo-campos">${camposHtml || '<div class="nodo-campo" style="color:#9ca3af">Sin campos extra</div>'}</div>
+        <div class="nodo-footer">
+          <button class="btn-nodo btn-nodo-config" onclick="irConfig('${t.nombre}')">&#9881; Config</button>
+          <button class="btn-nodo btn-nodo-del" onclick="eliminarTabla('${t.nombre}')"
+            ${esFijo ? 'disabled title="Tabla con rol fijo en ventas"' : ''}>&#128465; Eliminar</button>
+        </div>
+      </div>`;
+  });
+}
+
+function renderFlechas() {
+  const svg = document.getElementById('flechas');
+
+  // Flecha: tablas con rol → LineaVenta
+  const rolesNombres = _tablas
+    .filter(t => t.es_login || t.en_venta_tipo === 'selector' || t.en_venta_tipo === 'lineas')
+    .map(t => t.nombre);
+
+  let paths = '';
+  // Marcador flecha
+  paths += `<defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-padre" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/>
+    </marker>
+  </defs>`;
+
+  // Flechas rol → ventas
+  const pv = centro('__ventas__');
+  rolesNombres.forEach(nombre => {
+    const p = centro(nombre);
+    if (!p || !pv) return;
+    paths += `<line x1="${p.x}" y1="${p.y}" x2="${pv.x}" y2="${pv.y}"
+      stroke="#3b82f6" stroke-width="2" stroke-dasharray="6,3"
+      marker-end="url(#arrow)" opacity=".7"/>`;
+  });
+
+  // Flechas padre_tabla
+  _tablas.forEach(t => {
+    if (!t.padre_tabla) return;
+    const p1 = centro(t.nombre);
+    const p2 = centro(t.padre_tabla);
+    if (!p1 || !p2) return;
+    paths += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}"
+      stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4,4"
+      marker-end="url(#arrow-padre)" opacity=".6"/>`;
+  });
+
+  svg.innerHTML = paths;
+}
+
+function centro(nombre) {
+  const el = document.getElementById(`nodo-${nombre}`);
+  if (!el) return null;
+  const x = parseInt(el.style.left) + el.offsetWidth / 2;
+  const y = parseInt(el.style.top) + el.offsetHeight / 2;
+  return { x, y };
+}
+
+// ── Drag ──────────────────────────────────────────────────────────────────────
+let _drag = null;
+
+function iniciarDrag(e, nombre) {
+  if (e.target.closest('button')) return;
+  const el = document.getElementById(`nodo-${nombre}`);
+  _drag = {
+    nombre,
+    el,
+    startX: e.clientX - parseInt(el.style.left),
+    startY: e.clientY - parseInt(el.style.top),
+  };
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', finDrag);
+  e.preventDefault();
+}
+
+function onDrag(e) {
+  if (!_drag) return;
+  const x = Math.max(0, e.clientX - _drag.startX);
+  const y = Math.max(0, e.clientY - _drag.startY);
+  _drag.el.style.left = x + 'px';
+  _drag.el.style.top  = y + 'px';
+  _posiciones[_drag.nombre] = { x, y };
+  renderFlechas();
+}
+
+function finDrag() {
+  if (_drag) {
+    // Guardar posiciones en localStorage
+    localStorage.setItem('estructura_pos', JSON.stringify(_posiciones));
+  }
+  _drag = null;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', finDrag);
+}
+
+// ── Acciones ──────────────────────────────────────────────────────────────────
+function irConfig(tabla) {
+  window.location.href = '/configuracion#' + tabla;
+}
+
+async function eliminarTabla(nombre) {
+  if (!confirm(`¿Eliminar la tabla "${nombre}" y todos sus datos?`)) return;
+  // TODO: endpoint DELETE /api/tablas/{nombre}
+  alert('Pendiente: endpoint de eliminacion de tabla');
+}
+
+// ── Modal nueva tabla ─────────────────────────────────────────────────────────
+function abrirModalNueva() {
+  const sel = document.getElementById('nueva-padre');
+  sel.innerHTML = '<option value="">— sin padre —</option>' +
+    _tablas.map(t => `<option value="${t.nombre}">${t.etiqueta}</option>`).join('');
+  document.getElementById('modal-nueva').classList.add('show');
+  document.getElementById('nueva-nombre').focus();
+}
+
+function cerrarModalNueva() {
+  document.getElementById('modal-nueva').classList.remove('show');
+}
+
+async function guardarNuevaTabla() {
+  const nombre   = document.getElementById('nueva-nombre').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const etiqueta = document.getElementById('nueva-etiqueta').value.trim();
+  const singular = document.getElementById('nueva-etiqueta-singular').value.trim();
+  const ruta     = document.getElementById('nueva-ruta').value.trim().toLowerCase().replace(/\s+/g,'_') || nombre;
+  const vtipo    = document.getElementById('nueva-venta-tipo').value;
+  const padre    = document.getElementById('nueva-padre').value;
+
+  if (!nombre || !etiqueta || !singular) { alert('Nombre, etiqueta y singular son obligatorios'); return; }
+
+  const res = await fetch('/api/tablas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, etiqueta, etiqueta_singular: singular, ruta, en_venta_tipo: vtipo, padre_tabla: padre })
+  }).then(r => r.json());
+
+  if (!res.ok) { alert(res.detail || 'Error al crear tabla'); return; }
+  cerrarModalNueva();
+  await init();
+}
+
+init();
+</script>
+</body>
+</html>
