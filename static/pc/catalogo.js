@@ -9,17 +9,18 @@
  */
 
 // ── Estado global ─────────────────────────────────────────────────────────────
-let _cfg = null;          // config completa del servidor (/api/tablas/{tabla}/config)
-let _datos = [];          // lista de registros cargados
-let _editId = null;       // id del registro que se está editando (null = nuevo)
-let _sortCol = null;      // columna de ordenación actual
-let _sortDir = 1;         // dirección: 1 asc, -1 desc
-let _camposExtra = [];    // campos personalizados (es_principal=0)
-let _colsDef = [];        // todas las columnas disponibles [{k, l}]
-let _colsVis = [];        // columnas actualmente visibles
+let _cfg = null;
+let _datos = [];
+let _editId = null;
+let _sortCol = null;
+let _sortDir = 1;
+let _camposExtra = [];
+let _colsDef = [];
+let _colsVis = [];
 let _perfilActivo = null;
 let _perfilesLista = [];
 let _operario = null;
+let _mt = null;  // instancia MiTabla
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function initCatalog() {
@@ -40,8 +41,8 @@ async function initCatalog() {
   _colsDef = [...colsPrinc, ...colsExtra];
   _sortCol = _cfg.campo_principal || _colsDef[0]?.k || 'id';
 
-  // Render estructura de la página
   _renderEstructura();
+  _initMiTabla();
 
   await Promise.all([_cargarDatos(), _cargarPerfiles()]);
 }
@@ -64,6 +65,7 @@ function _render() {
       Object.values(row).some(v => String(v || '').toLowerCase().includes(q))
     );
   }
+  if (_mt) lista = _mt.aplicarFiltros(lista);
 
   const sorted = ordenarTabla(lista, _sortCol, _sortDir);
   const count = document.getElementById('cat-count');
@@ -82,12 +84,28 @@ function _render() {
     </tr>`).join('');
 }
 
+function _initMiTabla() {
+  _mt = new MiTabla({
+    cols: _colsVis,
+    sortCol: _sortCol, sortDir: _sortDir,
+    onSort: col => { if (_sortCol===col) _sortDir*=-1; else {_sortCol=col;_sortDir=1;} _mt.sortCol=_sortCol; _mt.sortDir=_sortDir; _render(); },
+    onReorder: keys => { _colsVis = keys.map(k => _colsDef.find(c=>c.k===k)).filter(Boolean); _mt.cols=_colsVis; _render(); if(_perfilActivo) _guardarConfigPerfil(); },
+    onResize: () => { if(_perfilActivo) _guardarConfigPerfil(); },
+    onFilter: () => _render(),
+    datosFilas: _datos,
+  });
+  window.__mt = _mt;
+}
+
 function _renderCabecera() {
-  const th = document.getElementById('cat-thead');
-  if (!th) return;
-  th.innerHTML = '<tr>' + _colsVis.map(c =>
-    `<th onclick="_sortBy('${c.k}')" style="cursor:pointer">${c.l} ↕</th>`
-  ).join('') + '</tr>';
+  if (!_mt) return;
+  _mt.cols = _colsVis;
+  _mt.sortCol = _sortCol; _mt.sortDir = _sortDir;
+  _mt.datosFilas = _datos;
+  _mt.renderCabecera(
+    document.getElementById('cat-thead'),
+    document.getElementById('cat-colgroup')
+  );
 }
 
 function _sortBy(col) {
@@ -223,11 +241,12 @@ function catAplicarPerfil(id) {
   document.getElementById('btn-borrar-perfil').style.display = 'block';
   document.getElementById('perfil-info').textContent = `Perfil: ${p.nombre}`;
   if (p.config?.columnas) {
-    _colsVis = _colsDef.filter(c => p.config.columnas.includes(c.k));
+    _colsVis = p.config.columnas.map(k => _colsDef.find(c=>c.k===k)).filter(Boolean);
     if (!_colsVis.length) _colsVis = [..._colsDef];
   } else {
     _colsVis = [..._colsDef];
   }
+  if (_mt && p.config?.anchos) Object.assign(_mt.anchos, p.config.anchos);
   _render();
 }
 
@@ -245,11 +264,18 @@ function catCerrarModalPerfil() {
   document.getElementById('modal-perfil').classList.remove('show');
 }
 
+async function _guardarConfigPerfil() {
+  if (!_perfilActivo) return;
+  const config = { columnas: _colsVis.map(c => c.k), anchos: _mt?.anchos || {} };
+  await apiActualizarPerfil(_perfilActivo.id, window.__TABLA__, _operario.id, _perfilActivo.nombre, config);
+  _perfilActivo.config = config;
+}
+
 async function catGuardarPerfil() {
   const nombre = document.getElementById('perfil-nombre').value.trim();
   if (!nombre) { alert('Escribe un nombre para el perfil'); return; }
   const columnas = _colsDef.filter(c => document.getElementById(`cc-${c.k}`)?.checked).map(c => c.k);
-  const config = { columnas };
+  const config = { columnas, anchos: _mt?.anchos || {} };
   if (_perfilActivo) {
     await apiActualizarPerfil(_perfilActivo.id, window.__TABLA__, _operario.id, nombre, config);
     _perfilActivo.nombre = nombre; _perfilActivo.config = config;

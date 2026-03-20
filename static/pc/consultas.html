@@ -149,17 +149,13 @@ let datos = [], articulos = [], modoEdicion = false;
 let sortCol = 'fecha', sortDir = -1;
 let originales = {};
 
-// Columnas dinámicas (cargadas desde /api/consultas/config)
-let COLS_CFG = [];        // [{campo, etiqueta, ancho_default, en_default, tipo_render, ...}]
+// Columnas dinámicas
+let COLS_CFG = [];
 let COLS_LABELS  = {};
 let ANCHO_DEFAULT = {};
 let clavesFijas  = new Set();
-
-// Drag & resize
-let anchos = {};
-let resizingCol = null, resizeStartX = 0, resizeStartW = 0;
-let dragCol = null;
 let columnasOrden = [];
+let _mt = null;  // instancia MiTabla
 
 // Filtros de tablas (cargados dinámicamente)
 let _tablasFiltrables = [];   // tabla_definiciones con en_filtros=1
@@ -181,6 +177,7 @@ async function init() {
     clavesFijas.add(c.campo);
   });
   columnasOrden = COLS_CFG.filter(c => c.en_default).map(c => c.campo);
+  _initMt();
 
   // 2. Cargar tablas filtrables y sus registros
   _tablasFiltrables = await fetch('/api/tablas?en_filtros=1').then(r => r.json());
@@ -352,75 +349,44 @@ async function busquedaAvanzada() {
   document.getElementById('btn-editar').style.display = datos.length ? 'block' : 'none';
 }
 
-// ── Resize & Drag ─────────────────────────────────────────────────────────────
-function getAncho(k) { return anchos[k] || ANCHO_DEFAULT[k] || 120; }
-
-function iniciarResize(e, campo) {
-  resizingCol   = campo;
-  resizeStartX  = e.clientX;
-  resizeStartW  = getAncho(campo);
-  document.addEventListener('mousemove', onResize);
-  document.addEventListener('mouseup',   finResize);
-  e.stopPropagation(); e.preventDefault();
-}
-function onResize(e) {
-  if (!resizingCol) return;
-  anchos[resizingCol] = Math.max(50, resizeStartW + (e.clientX - resizeStartX));
-  const cols = document.querySelectorAll('#colgroup col');
-  const idx  = columnasOrden.indexOf(resizingCol);
-  if (idx >= 0 && cols[idx]) cols[idx].style.width = anchos[resizingCol] + 'px';
-}
-function finResize() {
-  document.removeEventListener('mousemove', onResize);
-  document.removeEventListener('mouseup',   finResize);
-  if (resizingCol && perfilActivo) guardarConfigPerfil();
-  resizingCol = null;
-}
-
-function moverCol(idx, dir) {
-  const dest = idx + dir;
-  if (dest < 0 || dest >= columnasOrden.length) return;
-  const tmp = columnasOrden[idx];
-  columnasOrden[idx] = columnasOrden[dest];
-  columnasOrden[dest] = tmp;
-  renderTabla();
-  if (perfilActivo) guardarConfigPerfil();
-}
-
-function ord(col) {
-  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
-  renderTabla();
+// ── MiTabla init ──────────────────────────────────────────────────────────────
+function _initMt() {
+  const anchosDef = {};
+  COLS_CFG.forEach(c => { anchosDef[c.campo] = c.ancho_default; });
+  _mt = new MiTabla({
+    cols: columnasOrden.map(k => ({ k, l: COLS_LABELS[k] || k.replace(/_/g,' ') })),
+    anchos: anchosDef, anchoDefault: 120,
+    sortCol, sortDir,
+    onSort: k => { if(sortCol===k) sortDir*=-1; else {sortCol=k;sortDir=1;} _mt.sortCol=sortCol; _mt.sortDir=sortDir; renderTabla(); },
+    onReorder: keys => { columnasOrden=keys; _mt.cols=keys.map(k=>({k,l:COLS_LABELS[k]||k.replace(/_/g,' ')})); renderTabla(); if(perfilActivo) guardarConfigPerfil(); },
+    onResize: () => { if(perfilActivo) guardarConfigPerfil(); },
+    onFilter: () => renderTabla(),
+    datosFilas: datos,
+  });
+  window.__mt = _mt;
 }
 
 // ── Render cabecera ───────────────────────────────────────────────────────────
 function renderCabecera() {
   if (modoEdicion) {
     const colsEd = [
-      {k:'numero_venta',l:'Ticket',w:90},{k:'fecha',l:'Fecha',w:130},
-      {k:'operario',l:'Operario',w:120},{k:'departamento',l:'Depto.',w:100},
-      {k:'cliente',l:'Cliente',w:140},{k:'articulo',l:'Articulo',w:180},
-      {k:'cantidad',l:'Cant. ✏️',w:70},{k:'precio_unitario',l:'Precio ✏️',w:90},
-      {k:'importe',l:'Importe',w:90},{k:'tipo_pago',l:'Pago ✏️',w:90},{k:'_del',l:'',w:40},
+      {k:'numero_venta',w:90},{k:'fecha',w:130},{k:'operario',w:120},{k:'departamento',w:100},
+      {k:'cliente',w:140},{k:'articulo',w:180},{k:'cantidad',w:70},
+      {k:'precio_unitario',w:90},{k:'importe',w:90},{k:'tipo_pago',w:90},{k:'_del',w:40},
     ];
-    document.getElementById('colgroup').innerHTML = colsEd.map(c => `<col style="width:${c.w}px">`).join('');
+    const labs = {numero_venta:'Ticket',fecha:'Fecha',operario:'Operario',departamento:'Depto.',
+      cliente:'Cliente',articulo:'Articulo',cantidad:'Cant. ✏️',precio_unitario:'Precio ✏️',
+      importe:'Importe',tipo_pago:'Pago ✏️',_del:''};
+    document.getElementById('colgroup').innerHTML = colsEd.map(c=>`<col style="width:${c.w}px">`).join('');
     document.getElementById('thead').innerHTML = '<tr>' +
-      colsEd.map(c => c.k==='_del'
-        ? `<th></th>`
-        : `<th class="sortable" onclick="ord('${c.k}')">${c.l}</th>`
-      ).join('') + '</tr>';
+      colsEd.map(c=>`<th style="background:#1e3a5f;color:#fff;padding:10px;font-size:11px;font-weight:600">${labs[c.k]||''}</th>`).join('')+'</tr>';
     return;
   }
-  document.getElementById('colgroup').innerHTML =
-    columnasOrden.map(k => `<col style="width:${getAncho(k)}px">`).join('');
-  document.getElementById('thead').innerHTML = '<tr>' +
-    columnasOrden.map((k, i) => {
-      const l = COLS_LABELS[k] || k.replace(/_/g,' ');
-      const btnIzq = i > 0 ? `<button onclick="moverCol(${i},-1)" title="Mover izquierda" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;padding:0 1px;line-height:1">◀</button>` : '<span style="display:inline-block;width:14px"></span>';
-      const btnDer = i < columnasOrden.length-1 ? `<button onclick="moverCol(${i},+1)" title="Mover derecha" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;padding:0 1px;line-height:1">▶</button>` : '<span style="display:inline-block;width:14px"></span>';
-      return `<th class="sortable" data-campo="${k}">
-        ${btnIzq}<span onclick="ord('${k}')" style="cursor:pointer;padding:0 4px">${l}</span>${btnDer}
-        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')" title="Arrastrar para cambiar ancho"></div></th>`;
-    }).join('') + '</tr>';
+  if (!_mt) return;
+  _mt.cols = columnasOrden.map(k => ({ k, l: COLS_LABELS[k] || k.replace(/_/g,' ') }));
+  _mt.sortCol = sortCol; _mt.sortDir = sortDir;
+  _mt.datosFilas = datos;
+  _mt.renderCabecera(document.getElementById('thead'), document.getElementById('colgroup'));
 }
 
 // ── Render celda según tipo_render ────────────────────────────────────────────
