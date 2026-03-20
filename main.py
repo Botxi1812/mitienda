@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import models, database, json, subprocess, sys
 
+models.Base.metadata.drop_all(bind=database.engine)
 models.Base.metadata.create_all(bind=database.engine)
 subprocess.run([sys.executable, "seed.py"], check=False)
 
