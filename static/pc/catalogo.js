@@ -48,7 +48,7 @@ async function initCatalog() {
   document.title = `Mi Tienda — ${_cfg.etiqueta}`;
 
   // Columnas: todas (principal + extra)
-  _camposExtra = _cfg.campos.filter(c => !c.es_principal && c.nombre !== _cfg.campo_padre_fk);
+  _camposExtra = _cfg.campos.filter(c => !c.es_principal);
   const colsPrinc = _cfg.campos.filter(c => c.es_principal).map(c => ({k: c.nombre, l: c.etiqueta}));
   const colsExtra = _camposExtra.map(c => ({k: c.nombre, l: c.etiqueta}));
   _colsDef = [...colsPrinc, ...colsExtra];
@@ -159,9 +159,10 @@ function catAbrir(id) {
     if (sel && row) sel.value = row[_cfg.campo_padre_fk] ?? '';
   }
 
-  // Campos extra
+  // Campos extra (excluir el que ya aparece como combo padre)
+  const camposExtraModal = _camposExtra.filter(c => c.nombre !== _cfg.campo_padre_fk);
   document.getElementById('cat-campos-extra').innerHTML =
-    renderCamposExtra(_camposExtra, row || {});
+    renderCamposExtra(camposExtraModal, row || {});
 
   document.getElementById('cat-modal').classList.add('show');
   // Focus primer campo
@@ -196,8 +197,8 @@ async function catGuardar() {
     }
   }
 
-  // Campos extra personalizados
-  const extra = recogerCamposExtra(_camposExtra);
+  // Campos extra personalizados (excluir el que ya viene del combo padre)
+  const extra = recogerCamposExtra(_camposExtra.filter(c => c.nombre !== _cfg.campo_padre_fk));
   Object.assign(body, extra);
 
   const url    = _editId ? `/api/entidad/${window.__TABLA__}/${_editId}` : `/api/entidad/${window.__TABLA__}`;
