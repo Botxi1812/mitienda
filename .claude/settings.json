@@ -6,7 +6,16 @@
       "Bash(c:/mitienda/static/pc/trabajadores.html:*)",
       "Bash(__NEW_LINE_c3b662658508a58c__ cat:*)",
       "Bash(c:/mitienda/static/pc/departamentos.html:*)",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(ls c:/mitienda/*.py c:/mitienda/*.html)",
+      "Bash(mv \"PRIMER PROYECTO\" \"../mitienda seg/\")",
+      "Bash(mv \"SEGUNDO PROYECCTO CON 5 FIJOS Y RESTO JSON.zip\" \"../mitienda seg/\")",
+      "Bash(mv GITHUB.md \"../mitienda seg/\")",
+      "Bash(mv MANUAL_DESPLIEGUE.md \"../mitienda seg/\")",
+      "Bash(mv PENDIENTE_2026-03-17.md \"../mitienda seg/\")"
+    ],
+    "additionalDirectories": [
+      "c:\\mitienda seg"
     ]
   }
 }
