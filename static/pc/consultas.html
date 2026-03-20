@@ -38,8 +38,8 @@
   thead th.sortable { cursor:pointer; }
   thead th.sortable:hover { background:#1e40af; }
   thead th.drag-over { background:#2563eb !important; }
-  .resize-handle { position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2; }
-  .resize-handle:hover { background:rgba(255,255,255,.35); }
+  .resize-handle { position:absolute;right:0;top:0;width:10px;height:100%;cursor:col-resize;z-index:2; }
+  .resize-handle:hover { background:rgba(255,255,255,.4); }
   tbody tr { border-bottom:1px solid #f3f4f6;transition:background .1s; }
   tbody tr:hover { background:#f9fafb; }
   tbody tr.modificada { background:#fefce8; }
@@ -268,12 +268,9 @@ async function buscar() {
   }));
   window._camposExtra = camposExtraDetectados;
 
-  if (!perfilActivo) {
-    columnasOrden = [...COLS_CFG.filter(c => c.en_default).map(c => c.campo), ...camposExtraDetectados];
-  } else {
-    const nuevos = camposExtraDetectados.filter(k => !columnasOrden.includes(k));
-    columnasOrden = [...columnasOrden, ...nuevos];
-  }
+  // Añadir campos extra nuevos sin resetear el orden que el usuario haya establecido
+  const nuevos = camposExtraDetectados.filter(k => !columnasOrden.includes(k));
+  if (nuevos.length) columnasOrden = [...columnasOrden, ...nuevos];
 
   originales = {};
   datos.forEach(l => { originales[l.id] = {...l}; });
@@ -424,11 +421,11 @@ function renderCabecera() {
   document.getElementById('thead').innerHTML = '<tr>' +
     columnasOrden.map(k => {
       const l = COLS_LABELS[k] || k.replace(/_/g,' ');
-      return `<th class="sortable" data-campo="${k}"
-        onclick="ord('${k}')" draggable="true"
+      return `<th class="sortable" data-campo="${k}" draggable="true"
         ondragstart="dragStart('${k}')" ondragover="dragOver(event,'${k}')"
         ondragleave="dragLeave('${k}')" ondrop="dragDrop('${k}')">
-        ${l} ↕<div class="resize-handle" onmousedown="iniciarResize(event,'${k}')"></div></th>`;
+        <span onclick="ord('${k}')" style="cursor:pointer;display:block;padding-right:8px">${l}</span>
+        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')"></div></th>`;
     }).join('') + '</tr>';
 }
 
