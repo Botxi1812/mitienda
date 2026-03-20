@@ -79,16 +79,13 @@ class LineaVenta(Base):
     id                 = Column(Integer, primary_key=True, index=True)
     numero_venta       = Column(String, index=True)
     fecha              = Column(DateTime, default=datetime.datetime.now, index=True)
-    operario           = Column(String, default="")
-    departamento       = Column(String, default="")
-    cliente            = Column(String, default="")
-    articulo           = Column(String, default="")
-    codigo             = Column(String, default="")
-    categoria          = Column(String, default="")
+    operario           = Column(String, default="")   # nombre snapshot
+    cliente            = Column(String, default="")   # nombre snapshot
+    articulo           = Column(String, default="")   # nombre snapshot
     precio_unitario    = Column(Float, default=0)
     cantidad           = Column(Float, default=0)
     importe            = Column(Float, default=0)
     tipo_pago          = Column(String, default="")
     modificado_por     = Column(String, default="")
     fecha_modificacion = Column(String, default="")
-    datos              = Column(Text, default="{}")       # campos extra JSON
+    datos              = Column(Text, default="{}")   # snapshot completo: todos los campos extra

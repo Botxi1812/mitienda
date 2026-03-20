@@ -215,7 +215,6 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
     if not op:
         raise HTTPException(404, "Operario no encontrado")
     op_datos = parse_datos(op.datos)
-    departamento = op_datos.get("departamento", "")
     cli = db.query(models.Entidad).filter_by(tabla=tabla_cli, id=body.cliente_id).first() if (body.cliente_id and tabla_cli) else None
     cli_datos = parse_datos(cli.datos) if cli else {}
     ultimo = db.query(models.LineaVenta).order_by(models.LineaVenta.id.desc()).first()
@@ -231,24 +230,25 @@ def crear_venta(body: VentaIn, db: Session = Depends(get_db)):
         if not art:
             raise HTTPException(404, f"Articulo {l.articulo_id} no encontrado")
         art_datos = parse_datos(art.datos)
+        # Snapshot: todos los campos extra de los tres actores en datos JSON
+        snapshot = {}
+        for k, v in op_datos.items():
+            snapshot[f"op_{k}"] = v
+        for k, v in cli_datos.items():
+            snapshot[f"cli_{k}"] = v
+        for k, v in art_datos.items():
+            snapshot[f"art_{k}"] = v
         db.add(models.LineaVenta(
             numero_venta=numero,
             fecha=ahora,
             operario=op.nombre,
-            departamento=departamento,
             cliente=cli.nombre if cli else "",
             articulo=art.nombre,
-            codigo=art_datos.get("codigo", ""),
-            categoria=art_datos.get("categoria", ""),
             precio_unitario=l.precio_unitario,
             cantidad=l.cantidad,
             importe=round(l.cantidad * l.precio_unitario, 2),
             tipo_pago=l.tipo_pago or "",
-            datos=dump_datos({
-                "cliente_cod": cli_datos.get("codigo", ""),
-                "ciudad": cli_datos.get("ciudad", ""),
-                "operario_num": op_datos.get("numero", ""),
-            }),
+            datos=dump_datos(snapshot),
         ))
     db.commit()
     return {"ok": True, "numero": numero}
@@ -260,14 +260,8 @@ def _linea_dict(l):
         "numero_venta": l.numero_venta,
         "fecha": l.fecha.strftime("%d/%m/%Y %H:%M") if l.fecha else "",
         "operario": l.operario,
-        "operario_num": extra.get("operario_num", ""),
-        "departamento": l.departamento,
         "cliente": l.cliente,
-        "cliente_cod": extra.get("cliente_cod", ""),
-        "ciudad": extra.get("ciudad", ""),
         "articulo": l.articulo,
-        "articulo_cod": l.codigo,
-        "categoria": l.categoria,
         "cantidad": l.cantidad,
         "precio_unitario": l.precio_unitario,
         "importe": l.importe,
@@ -275,9 +269,8 @@ def _linea_dict(l):
         "modificado_por": l.modificado_por,
         "fecha_modificacion": l.fecha_modificacion,
     }
-    for k, v in extra.items():
-        if k not in d:
-            d[k] = v
+    # Todo el snapshot extra (op_*, cli_*, art_*) se añade tal cual
+    d.update(extra)
     return d
 
 @app.get("/api/ventas")
@@ -430,10 +423,10 @@ def get_consultas_config():
         {"campo": "numero_venta",    "etiqueta": "Ticket",     "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
         {"campo": "fecha",           "etiqueta": "Fecha",       "ancho_default": 130, "en_default": True,  "tipo_render": ""},
         {"campo": "operario",        "etiqueta": "Operario",    "ancho_default": 120, "en_default": True,  "tipo_render": ""},
-        {"campo": "departamento",    "etiqueta": "Depto.",      "ancho_default": 100, "en_default": False, "tipo_render": ""},
+        {"campo": "op_departamento", "etiqueta": "Depto.",      "ancho_default": 100, "en_default": False, "tipo_render": ""},
         {"campo": "cliente",         "etiqueta": "Cliente",     "ancho_default": 150, "en_default": True,  "tipo_render": ""},
-        {"campo": "ciudad",          "etiqueta": "Ciudad",      "ancho_default": 110, "en_default": False, "tipo_render": ""},
-        {"campo": "articulo_cod",    "etiqueta": "Cod. Art.",   "ancho_default": 90,  "en_default": False, "tipo_render": ""},
+        {"campo": "cli_ciudad",      "etiqueta": "Ciudad",      "ancho_default": 110, "en_default": False, "tipo_render": ""},
+        {"campo": "art_codigo",      "etiqueta": "Cod. Art.",   "ancho_default": 90,  "en_default": False, "tipo_render": ""},
         {"campo": "articulo",        "etiqueta": "Articulo",    "ancho_default": 180, "en_default": True,  "tipo_render": ""},
         {"campo": "cantidad",        "etiqueta": "Cant.",       "ancho_default": 70,  "en_default": True,  "tipo_render": "cantidad"},
         {"campo": "precio_unitario", "etiqueta": "Precio",      "ancho_default": 90,  "en_default": True,  "tipo_render": "moneda"},
