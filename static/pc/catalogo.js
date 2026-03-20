@@ -48,7 +48,7 @@ async function initCatalog() {
   document.title = `Mi Tienda — ${_cfg.etiqueta}`;
 
   // Columnas: todas (principal + extra)
-  _camposExtra = _cfg.campos.filter(c => !c.es_principal);
+  _camposExtra = _cfg.campos.filter(c => !c.es_principal && c.nombre !== _cfg.campo_padre_fk);
   const colsPrinc = _cfg.campos.filter(c => c.es_principal).map(c => ({k: c.nombre, l: c.etiqueta}));
   const colsExtra = _camposExtra.map(c => ({k: c.nombre, l: c.etiqueta}));
   _colsDef = [...colsPrinc, ...colsExtra];
