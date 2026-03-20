@@ -377,18 +377,12 @@ function finResize() {
   resizingCol = null;
 }
 
-function dragStart(campo) { dragCol = campo; }
-function dragOver(e, campo) { e.preventDefault(); document.querySelector(`th[data-campo="${campo}"]`)?.classList.add('drag-over'); }
-function dragLeave(campo)   { document.querySelector(`th[data-campo="${campo}"]`)?.classList.remove('drag-over'); }
-function dragDrop(destino)  {
-  document.querySelectorAll('thead th').forEach(th => th.classList.remove('drag-over'));
-  if (!dragCol || dragCol === destino) { dragCol = null; return; }
-  const from = columnasOrden.indexOf(dragCol);
-  const to   = columnasOrden.indexOf(destino);
-  if (from < 0 || to < 0) { dragCol = null; return; }
-  columnasOrden.splice(from, 1);
-  columnasOrden.splice(to, 0, dragCol);
-  dragCol = null;
+function moverCol(idx, dir) {
+  const dest = idx + dir;
+  if (dest < 0 || dest >= columnasOrden.length) return;
+  const tmp = columnasOrden[idx];
+  columnasOrden[idx] = columnasOrden[dest];
+  columnasOrden[dest] = tmp;
   renderTabla();
   if (perfilActivo) guardarConfigPerfil();
 }
@@ -419,13 +413,13 @@ function renderCabecera() {
   document.getElementById('colgroup').innerHTML =
     columnasOrden.map(k => `<col style="width:${getAncho(k)}px">`).join('');
   document.getElementById('thead').innerHTML = '<tr>' +
-    columnasOrden.map(k => {
+    columnasOrden.map((k, i) => {
       const l = COLS_LABELS[k] || k.replace(/_/g,' ');
-      return `<th class="sortable" data-campo="${k}" draggable="true"
-        ondragstart="dragStart('${k}')" ondragover="dragOver(event,'${k}')"
-        ondragleave="dragLeave('${k}')" ondrop="dragDrop('${k}')">
-        <span onclick="ord('${k}')" style="cursor:pointer;display:inline-block;padding-right:12px">${l}</span>
-        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')" title="Arrastra para cambiar ancho"></div></th>`;
+      const btnIzq = i > 0 ? `<button onclick="moverCol(${i},-1)" title="Mover izquierda" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;padding:0 1px;line-height:1">◀</button>` : '<span style="display:inline-block;width:14px"></span>';
+      const btnDer = i < columnasOrden.length-1 ? `<button onclick="moverCol(${i},+1)" title="Mover derecha" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;padding:0 1px;line-height:1">▶</button>` : '<span style="display:inline-block;width:14px"></span>';
+      return `<th class="sortable" data-campo="${k}">
+        ${btnIzq}<span onclick="ord('${k}')" style="cursor:pointer;padding:0 4px">${l}</span>${btnDer}
+        <div class="resize-handle" onmousedown="iniciarResize(event,'${k}')" title="Arrastrar para cambiar ancho"></div></th>`;
     }).join('') + '</tr>';
 }
 
