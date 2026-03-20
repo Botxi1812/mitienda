@@ -67,6 +67,7 @@
   <div style="display:flex;align-items:center;gap:16px">
     <h1>&#127978; Mi Tienda</h1>
     <nav class="nav-links" id="nav-dinamica"></nav>
+    <a href="/nueva-venta" style="padding:8px 16px;background:#059669;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">+ Nueva venta</a>
   </div>
   <div class="user-info">
     <div class="avatar" id="avatar">?</div>
@@ -257,18 +258,18 @@ async function buscar() {
   if (desde) params.append('fecha_desde', desde);
   if (hasta) params.append('fecha_hasta', hasta);
 
-  // Parámetros de tablas filtrables → mapear a nombres que entiende /api/ventas
-  const PARAM_MAP = { clientes: 'cliente_id', operarios: 'operario_id', articulos: 'articulo_id' };
+  // Parámetros de tablas filtrables → filtrar por nombre (texto), no por ID
+  const PARAM_MAP = { clientes: 'cliente', operarios: 'operario', articulos: 'articulo' };
   _tablasFiltrables.forEach(t => {
     const el  = document.getElementById(`f-${t.nombre}`);
-    const key = PARAM_MAP[t.nombre] || (t.nombre.replace(/s$/, '') + '_id');
-    if (el?.value) params.append(key, el.value);
+    const key = PARAM_MAP[t.nombre] || t.nombre.replace(/s$/, '');
+    if (el?.value) {
+      // el.value es el id; buscar el nombre correspondiente
+      const registros = _datosFiltrables[t.nombre] || [];
+      const reg = registros.find(r => String(r.id) === el.value);
+      if (reg) params.append(key, reg.nombre);
+    }
   });
-  // Artículo también aunque no esté en en_filtros (compatible con API)
-  const fArt = document.getElementById('f-articulos');
-  if (!fArt) {
-    // Artículos no es filtrable, no añadir param
-  }
 
   datos = await fetch('/api/ventas?' + params).then(r => r.json());
 
@@ -417,12 +418,11 @@ function ord(col) {
 function renderCabecera() {
   if (modoEdicion) {
     const colsEd = [
-      {k:'ticket',l:'Ticket',w:90},{k:'fecha',l:'Fecha',w:130},
+      {k:'numero_venta',l:'Ticket',w:90},{k:'fecha',l:'Fecha',w:130},
       {k:'operario',l:'Operario',w:120},{k:'departamento',l:'Depto.',w:100},
-      {k:'cliente',l:'Cliente',w:140},
-      {k:'articulo',l:'Artículo ✏️',w:180},{k:'cantidad',l:'Cant. ✏️',w:70},
-      {k:'precio_unitario',l:'Precio ✏️',w:90},{k:'importe',l:'Importe',w:90},
-      {k:'tipo_pago',l:'Pago ✏️',w:90},{k:'_del',l:'',w:40},
+      {k:'cliente',l:'Cliente',w:140},{k:'articulo',l:'Articulo',w:180},
+      {k:'cantidad',l:'Cant. ✏️',w:70},{k:'precio_unitario',l:'Precio ✏️',w:90},
+      {k:'importe',l:'Importe',w:90},{k:'tipo_pago',l:'Pago ✏️',w:90},{k:'_del',l:'',w:40},
     ];
     document.getElementById('colgroup').innerHTML = colsEd.map(c => `<col style="width:${c.w}px">`).join('');
     document.getElementById('thead').innerHTML = '<tr>' +
@@ -489,13 +489,10 @@ function renderTabla(datosRender) {
   }
   if (modoEdicion) {
     tb.innerHTML = sorted.map(l => {
-      const optsArt = articulos.map(a =>
-        `<option value="${a.id}" ${a.id===l.articulo_id?'selected':''}>${a.codigo} — ${a.descripcion}</option>`
-      ).join('');
       return `<tr data-id="${l.id}" class="${l.modificado_por?'modificada':''}">
-        <td><strong>${l.ticket}</strong></td><td>${l.fecha}</td>
+        <td><strong>${l.numero_venta}</strong></td><td>${l.fecha}</td>
         <td>${l.operario}</td><td>${l.departamento||'—'}</td><td>${l.cliente}</td>
-        <td><select class="ed-select" data-field="articulo_id" onchange="articuloCambiado(${l.id},this)">${optsArt}</select></td>
+        <td>${l.articulo}</td>
         <td><input class="ed-input" type="number" min="0.01" step="0.01" data-field="cantidad" value="${l.cantidad}" style="width:70px" oninput="recalcImporte(${l.id})"></td>
         <td><input class="ed-input" type="number" min="0" step="0.01" data-field="precio_unitario" value="${l.precio_unitario}" style="width:90px" oninput="recalcImporte(${l.id})"></td>
         <td class="importe-cell" id="imp-${l.id}">${fmt(l.importe)} €</td>
@@ -519,9 +516,9 @@ function renderResumen() {
   if (!datos.length) { document.getElementById('resumen').style.display='none'; return; }
   document.getElementById('resumen').style.display='grid';
   document.getElementById('r-lineas').textContent    = datos.length;
-  document.getElementById('r-ventas').textContent = new Set(datos.map(l=>l.ticket)).size;
+  document.getElementById('r-ventas').textContent = new Set(datos.map(l=>l.numero_venta)).size;
   document.getElementById('r-total').textContent     = fmt(datos.reduce((s,l)=>s+l.importe,0))+' €';
-  document.getElementById('r-esp').textContent       = datos.filter(l=>l.especial).length;
+  document.getElementById('r-esp').textContent       = '—';
   document.getElementById('r-mod').textContent       = datos.filter(l=>l.modificado_por).length;
 }
 
@@ -553,14 +550,7 @@ function getValoresFila(tr) {
   return vals;
 }
 
-async function articuloCambiado(id, sel) {
-  const artId = parseInt(sel.value);
-  const l = datos.find(x => x.id===id);
-  if (!l) return;
-  const data = await fetch(`/api/precio/${l.cliente_id}/${artId}`).then(r=>r.json()).catch(()=>null);
-  const tr = sel.closest('tr');
-  const precioInput = tr.querySelector('[data-field="precio_unitario"]');
-  if (data && precioInput) precioInput.value = data.precio;
+function articuloCambiado(id, sel) {
   recalcImporte(id);
 }
 
@@ -591,13 +581,11 @@ async function guardarEdicion() {
     const id   = parseInt(tr.dataset.id);
     const v    = getValoresFila(tr);
     const orig = originales[id];
-    const artId  = parseInt(v.articulo_id)||orig.articulo_id;
     const cant   = parseFloat(v.cantidad)||orig.cantidad;
     const precio = parseFloat(v.precio_unitario)||orig.precio_unitario;
     const pago   = v.tipo_pago ?? orig.tipo_pago;
-    if (artId!==orig.articulo_id || cant!==orig.cantidad ||
-        precio!==orig.precio_unitario || pago!==orig.tipo_pago) {
-      cambios.push({id, articulo_id:artId, cantidad:cant,
+    if (cant!==orig.cantidad || precio!==orig.precio_unitario || pago!==orig.tipo_pago) {
+      cambios.push({id, cantidad:cant,
         precio_unitario:precio, tipo_pago:pago,
         modificado_por: operario?.nombre || 'desconocido'});
     }

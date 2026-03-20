@@ -216,31 +216,15 @@ async function onArticuloChange(idx) {
   if (!artId) return;
   _lineas[idx].articulo_id = artId;
   const cliId = getSelectorId();
-  if (cliId && _selectorTabla?.nombre === 'clientes') {
-    const data = await fetch(`/api/precio/${cliId}/${artId}`).then(r => r.json());
-    _lineas[idx].precio   = data.precio;
-    _lineas[idx].especial = data.especial;
-  } else {
-    const art = _datosTablas[_lineasTabla.nombre]?.find(a => a.id === artId);
-    _lineas[idx].precio   = art ? (art.precio || 0) : 0;
-    _lineas[idx].especial = false;
-  }
+  const art = _datosTablas[_lineasTabla.nombre]?.find(a => a.id === artId);
+  _lineas[idx].precio   = art ? (art.precio || 0) : 0;
+  _lineas[idx].especial = false;
   renderLineas();
   calcTotal();
 }
 
-async function recalcularPrecios() {
-  const cliId = getSelectorId();
-  if (!cliId || _selectorTabla?.nombre !== 'clientes') return;
-  for (let i = 0; i < _lineas.length; i++) {
-    if (_lineas[i].articulo_id) {
-      const data = await fetch(`/api/precio/${cliId}/${_lineas[i].articulo_id}`).then(r => r.json());
-      _lineas[i].precio   = data.precio;
-      _lineas[i].especial = data.especial;
-    }
-  }
-  renderLineas();
-  calcTotal();
+function recalcularPrecios() {
+  // Sin precios especiales: no hay nada que recalcular al cambiar cliente
 }
 
 function onCantidadChange(idx) {

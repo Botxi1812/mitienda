@@ -420,7 +420,7 @@ def borrar_perfil(id: int, db: Session = Depends(get_db)):
 @app.get("/api/consultas/config")
 def get_consultas_config():
     return [
-        {"campo": "ticket",         "etiqueta": "Ticket",      "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
+        {"campo": "numero_venta",    "etiqueta": "Ticket",      "ancho_default": 90,  "en_default": True,  "tipo_render": "bold"},
         {"campo": "fecha",           "etiqueta": "Fecha",        "ancho_default": 130, "en_default": True,  "tipo_render": ""},
         {"campo": "operario",        "etiqueta": "Operario",     "ancho_default": 120, "en_default": True,  "tipo_render": ""},
         {"campo": "departamento",    "etiqueta": "Depto.",       "ancho_default": 100, "en_default": False, "tipo_render": ""},
@@ -431,7 +431,6 @@ def get_consultas_config():
         {"campo": "cantidad",        "etiqueta": "Cant.",        "ancho_default": 70,  "en_default": True,  "tipo_render": "cantidad"},
         {"campo": "precio_unitario", "etiqueta": "Precio",       "ancho_default": 90,  "en_default": True,  "tipo_render": "moneda"},
         {"campo": "importe",         "etiqueta": "Importe",      "ancho_default": 100, "en_default": True,  "tipo_render": "importe"},
-        {"campo": "especial",        "etiqueta": "Especial",     "ancho_default": 80,  "en_default": False, "tipo_render": "badge_especial"},
         {"campo": "tipo_pago",       "etiqueta": "Pago",         "ancho_default": 80,  "en_default": True,  "tipo_render": ""},
         {"campo": "modificado_por",  "etiqueta": "Modif. por",   "ancho_default": 110, "en_default": False, "tipo_render": "subdued"},
     ]
