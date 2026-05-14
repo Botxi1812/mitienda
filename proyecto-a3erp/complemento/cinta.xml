@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="RibbonOnLoad">
+
+  <ribbon>
+    <tabs>
+      <tab id="tabA3" label="A3 Complemento" insertAfterMso="TabHome">
+
+        <!-- GENERAL -->
+        <group id="grpGeneral" label="General">
+          <button id="btnActualizar"
+                  label="Actualizar Todo"
+                  screentip="Refresca Clientes, Articulos y Cartera"
+                  supertip="Actualiza todas las tablas del complemento. Muestra resumen con registros y campos."
+                  size="large"
+                  imageMso="Refresh"
+                  onAction="RibbonActualizarTodo"/>
+        </group>
+
+        <!-- ALBARANES -->
+        <group id="grpAlbaranes" label="Albaranes">
+          <editBox id="edtCliente"
+                   label="Cliente:"
+                   screentip="Codigo cliente (0 = todos)"
+                   sizeString="000000"
+                   onChange="RibbonClienteCambio"
+                   getText="RibbonGetCliente"/>
+          <button id="btnBuscarAlb"
+                  label="Buscar"
+                  screentip="Ejecutar busqueda de albaranes"
+                  size="large"
+                  imageMso="FindDialog"
+                  onAction="RibbonBuscarAlbaranes"/>
+        </group>
+
+        <!-- TRAER -->
+        <group id="grpTraer" label="Traer">
+          <button id="btnTraerAlb"
+                  label="Albaranes"
+                  screentip="Copia la tabla Albaranes al libro activo como valores"
+                  size="large"
+                  imageMso="TableInsert"
+                  onAction="RibbonVerAlbaranes"/>
+          <button id="btnTraerCartera"
+                  label="Cartera"
+                  screentip="Copia la tabla Cartera al libro activo como valores"
+                  size="large"
+                  imageMso="TableInsert"
+                  onAction="RibbonTraerCartera"/>
+          <button id="btnTraerArticulos"
+                  label="Articulos"
+                  screentip="Copia la tabla Articulos al libro activo como valores"
+                  size="large"
+                  imageMso="TableInsert"
+                  onAction="RibbonTraerArticulos"/>
+          <button id="btnTraerClientes"
+                  label="Clientes"
+                  screentip="Copia la tabla Clientes al libro activo como valores"
+                  size="large"
+                  imageMso="TableInsert"
+                  onAction="RibbonTraerClientes"/>
+          <button id="btnBuscarClientes"
+                  label="Buscar&#10;Clientes"
+                  screentip="Busca clientes por codigo, nombre o NIF y vuelca el resultado en la hoja Clientes"
+                  size="large"
+                  imageMso="FindDialog"
+                  onAction="RibbonBuscarClientes"/>
+        </group>
+
+        <!-- PVD SAGE -->
+        <group id="grpPvdSage" label="PVD SAGE">
+          <button id="btnImportarPvdSage"
+                  label="Importar PVD SAGE"
+                  screentip="Importa la hoja PVD SAGE del libro activo al complemento"
+                  supertip="Guardar el .xlam despues de importar."
+                  size="large"
+                  imageMso="FileOpen"
+                  onAction="RibbonImportarPvdSage"/>
+        </group>
+
+        <!-- COMPROBACION CMS -->
+        <group id="grpCMS" label="Comprobacion CMS">
+          <button id="btnCargarCMS"
+                  label="1 - Cargar CMS"
+                  screentip="Importa la primera hoja del archivo CMS exportado"
+                  size="large"
+                  imageMso="FileOpen"
+                  onAction="RibbonCargarCMS"/>
+          <button id="btnResetFiltro"
+                  label="2 - Filtro 10 dias"
+                  screentip="Busca albaranes de los ultimos 10 dias"
+                  size="large"
+                  imageMso="Filter"
+                  onAction="RibbonResetFiltro"/>
+          <button id="btnMatch"
+                  label="3 - Match Comparar"
+                  screentip="Cruza el CMS exportado con los albaranes de A3"
+                  size="large"
+                  imageMso="EquationInsertNew"
+                  onAction="RibbonMatch"/>
+          <button id="btnGenerarInforme"
+                  label="4 - Generar Informe"
+                  screentip="Genera el informe formateado desde Comparativa"
+                  size="large"
+                  imageMso="FilePrint"
+                  onAction="RibbonGenerarInforme"/>
+        </group>
+
+        <!-- UTILIDADES -->
+        <group id="grpUtilidades" label="Utilidades">
+          <button id="btnAnadirMenu"
+                  label="Menu Cel."
+                  screentip="Añade el menu contextual de boton derecho"
+                  size="normal"
+                  imageMso="Play"
+                  onAction="RibbonAnadirMenu"/>
+          <button id="btnQuitarMenu"
+                  label="Quitar Menu"
+                  screentip="Elimina el menu contextual de boton derecho"
+                  size="normal"
+                  imageMso="Stop"
+                  onAction="RibbonQuitarMenu"/>
+        </group>
+
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
