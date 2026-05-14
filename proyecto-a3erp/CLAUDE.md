@@ -184,20 +184,28 @@ Generado por el módulo `ExportarModulos` del propio complemento.
 - `GetComplemento()` devuelve el Workbook del complemento — usar siempre esto, no `ThisWorkbook` en funciones de celda
 - Acceso a tablas: siempre por el complemento, nunca por el libro activo (excepción: `SumarAlbaranesPendientes`)
 - Cache de arrays: invalidado cuando cambia el número de filas (`mCacheFilas`)
-- **QueryTable** (no ADODB) para conexiones Excel a SQL Server — coherente con arquitectura existente
+- **Patrón de conexión** — QueryTable embebido en el `ListObject` de la hoja (no ADODB standalone). El QueryTable viaja con la tabla, no existe como objeto independiente. Patrón de referencia (ModAlbaranes/ModCartera):
+  ```vba
+  Set lo = wbComp.Sheets(HOJA_X).ListObjects(1)
+  Set qt = lo.QueryTable
+  qt.CommandText = sqlFinal
+  qt.BackgroundQuery = False
+  qt.Refresh BackgroundQuery:=False
+  ```
+  Para verificar que la conexión existe: iterar `wbComp.Connections` buscando por nombre (`CONN_ALBARANES`, etc.) antes del Refresh.
 - **Power Query** preferido para conexiones live/recurrentes; Excel COM para dumps de una sola vez
 
 ### Reglas VBA
 - `Dim` siempre fuera de bucles `For`
 - Usar `CStr()` para cast explícito al pasar elementos de array Variant a parámetros String
 - Usar `RGB()` directo en vez de conversión hex en bucles
-- **Máximo 24 `_` de continuación de línea** por sentencia — strings largos construirlos en variable intermedia
+- **Máximo 24 `_` de continuación de línea** por sentencia — strings largos (ej. MacroOptions tooltips) construirlos en variable intermedia con concatenación línea a línea
 - `ISNULL()` en SQL para campos nulos al cargar a Excel
-- `NumberFormat` explícito en celdas numéricas: `"#,##0.###"` o `"#,##0.000"`
+- `NumberFormat` explícito en celdas numéricas: `"#,##0.###"` o `"#,##0.000"` para evitar que Excel trate decimales como texto
 
 ### Formato de entrega de código VBA
 - Archivos `.bas` completos para importación directa cuando los cambios son sustanciales
-- Herramientas Excel: base `.xlsx` + módulos `.bas` separados
+- Herramientas Excel: base `.xlsx` + módulos `.bas` separados (generar `.xlsm` funcional con VBA embebido desde Python no es fiable)
 
 ### Actualizar dump_actual.txt
 Cuando Rafa ejecute la macro `ExportarModulos` en Excel, generará un nuevo TXT.
