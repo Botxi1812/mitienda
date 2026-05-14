@@ -1,0 +1,119 @@
+# A3ERP — DIRECTORIO DE ARCHIVOS DEL SERVIDOR
+**Ruta raíz:** `C:\Program Files (x86)\A3\A3Erp`
+**Fecha del árbol capturado:** 03/03/2026
+**Versión instalada (por fecha EXE principal):** 02/02/2026
+**Total archivos:** 4.980 | **Total directorios:** 3.545 | **Espacio ocupado:** ~1,9 GB
+
+---
+
+## 1. NÚCLEO A3ERP (raíz)
+
+Ruta: `C:\Program Files (x86)\A3\A3Erp\`
+
+a3ERP.exe | a3ERPInOut.exe | BorradoDeFacturas.exe
+a3ERPCore.bpl (24 MB) | a3ERPCoreExt.bpl (18 MB) | a3ERPReports.bpl (16 MB)
+a3ERPVisual.bpl | a3ERPProcess.bpl | a3ERPLeyAntifraude.bpl
+a3ERP.GestionDocumental.dll | a3ERP.Ayudas.dll | a3ERPActiveX.dll
+a3ERPASESORLINK.dll | a3ERPExtensibilityServices.dll | A3ERPIntegrationLibrary.dll
+
+---
+
+## 2. SISTEMA — ESTRUCTURA DE BD (a3ERP)
+
+Ruta: `C:\Program Files (x86)\A3\A3Erp\sistema\a3ERP\`
+
+Actualizaciones.xml | columnas.xml | Constraints.xml | dependencias.xml
+Funciones.xml | indices.xml | Integridad.xml | libreria.xml
+Plantillas.xml | PreActualizaciones.xml | Procedimientos.xml
+Relaciones.xml | Tablas.xml | Triggers.xml | vistas.xml
+
+> columnas.xml y Tablas.xml son los ficheros clave para conocer la estructura de datos.
+> Disponibles en el proyecto como contexto/tablas_a3.txt y contexto/vistas_a3.xml.
+
+---
+
+## 3. SISTEMA — ESTRUCTURA DE BD (Sistema)
+
+Ruta: `C:\Program Files (x86)\A3\A3Erp\sistema\Sistema\`
+
+Actualizaciones.xml | Columnas.xml | Constraints.xml | Dependencias.xml
+Funciones.xml | Indices.xml | Integridad.xml | Libreria.xml
+Plantillas.xml | PreActualizaciones.xml | Procedimientos.xml (11 MB)
+Relaciones.xml | Tablas.xml | Triggers.xml | Vistas.xml
+administracion.xml | bancos.xml | delegaciones.xml | FACe-Relaciones.csv | postal.xml
+
+---
+
+## 4. EXTENSIONES A3 SOFTWARE
+
+Ruta base: `C:\Program Files (x86)\A3\A3Erp\Extensiones\A3 Software\`
+
+### 4.1 a3ERPExtension
+Contactos, CRM, expedientes, vinculos, O365, gestión documental.
+Diccionario BD completo. Menú: a3ERPExtension.menuV2
+DLLs: a3ERPContactos.dll | a3ERPCRMService.dll | a3ERPConfigMail.dll | a3ERPConfigurationO365.dll
+
+### 4.2 a3ASESORBusiness
+Despachos/asesorías. Integración A3ASESOR, cuotas, pre-facturación, Kleos.
+Binarios: A3ASESOR.CoreExt.dll | A3ASESORbusiness.dll
+
+### 4.3 A3ERPBank
+Banca electrónica, remesas, conciliación.
+Binarios: a3ERPBank.dll | a3ERPEncrypt.dll
+
+### 4.4 a3ERPBI
+Business Intelligence. Cubos OLAP. Ejecutable: a3erpBI.exe
+
+### 4.5 a3ERPExcelServices
+Integración Excel (add-in XLA). Binarios: a3ERP.xla | a3ERPExcelServices.dll
+
+### 4.6 a3ERPModelos (2024/2025/2026)
+Modelos fiscales AEAT e IGIC Canarias.
+Módulos: 303 (IVA) | 390 (Resumen IVA) | 425 (IGIC) | 180 | 347 | 349
+JARs Canarias: 415, 417, 420, 425
+
+### 4.7 Utilb360
+Migración a Business360. Ejecutables: a3ERPMigradorA3CON.exe | a3ERPMigradorA3GES.exe
+
+### 4.8 a3ERPPowerBI
+Integración Power BI. Binarios: a3ERPPowerBI.dll
+
+---
+
+## 5. PLANTILLAS
+
+Ruta: `C:\Program Files (x86)\A3\A3Erp\plantillas\`
+
+Excel Server: Balance (abreviado/normal/PYMES) | P&L (abreviado/analítico/normal/PYMES)
+Estadística ventas/compras x artículo/cliente/CCAA/provincia/representante
+Flujo caja | Ratios | Seguimiento objetivos/presupuesto | Inmovilizado
+
+Listados DFM: LstImprFacV_* | LstImprAlbV_* | LstImprFacC_* | LSTIMPRFACVSIF_*
+
+---
+
+## 6. SCRIPTS SQL
+
+Ruta: `C:\Program Files (x86)\A3\A3Erp\scripts\`
+
+CambiarAsientosPatron.sql | LimpiarSistema.sql | Reparar documentos Nexus.sql
+Reparar SumanumAutofac.sql | ScriptComprobarEstructura.sql | ScriptDomBanca.sql
+ScriptGenCUOTAS.sql | TrasRestaurarSQL.sql
+
+---
+
+## 7. SEPA Y NORMATIVA
+
+normativa dic-23\: SEPA.exe | SEPAbic.txt | SEPAErr.dll | SEPALib.dll
+normativa oct-25\: SEPA.exe | SEPAbic.txt | SEPAErr.dll | SEPALib.dll
+
+---
+
+## 8. SDKWRAPPER (Verifactu / Ley Antifraude)
+
+a3ERPLeyAntifraudeSDKWrapper.dll | a3innuva.ATF.SDK.*.dll (5 DLLs)
+wke.FirmaXades.dll | QRCoder.dll | BouncyCastle.Cryptography.dll
+
+---
+
+*Árbol capturado el 03/03/2026. Versión A3ERP: 02/02/2026.*
